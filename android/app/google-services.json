@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "438970553897",
+    "project_id": "telecare-platform-61005",
+    "storage_bucket": "telecare-platform-61005.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:438970553897:android:54a7b3fcc7570f8bcb6e38",
+        "android_client_info": {
+          "package_name": "com.example.telecare_mobile_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "438970553897-p3ph77n1n0qbqj68k8bl2sgcog619ul9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaMy37auRY-lHpflkz2f-Xec3OsgHdz40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "438970553897-p3ph77n1n0qbqj68k8bl2sgcog619ul9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
