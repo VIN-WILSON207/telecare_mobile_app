@@ -60,7 +60,7 @@ class AuthRepository {
       email: email.trim(),
       phone: phone.trim(),
       role: role,
-      verificationStatus: false,
+      verificationStatus: 'unverified',
       createdAt: DateTime.now(),
     );
 
