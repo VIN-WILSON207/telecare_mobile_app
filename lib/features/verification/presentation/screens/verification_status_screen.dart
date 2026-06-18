@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../auth/providers/auth_providers.dart';
-import '../../auth/providers/auth_state.dart';
-import '../providers/verification_providers.dart';
-import '../widgets/status_card.dart';
+import 'package:telecare_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:telecare_mobile_app/features/auth/providers/auth_state.dart';
+import 'package:telecare_mobile_app/features/verification/providers/verification_providers.dart';
+import 'package:telecare_mobile_app/features/verification/presentation/widgets/status_card.dart';
 
 class VerificationStatusScreen extends ConsumerWidget {
   const VerificationStatusScreen({super.key});

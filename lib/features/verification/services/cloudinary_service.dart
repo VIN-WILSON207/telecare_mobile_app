@@ -17,7 +17,6 @@ class CloudinaryException implements Exception {
 /// Uses unsigned upload presets defined in the `.env` file.
 class CloudinaryService {
   late final CloudinaryPublic _cloudinary;
-  late final String _uploadPreset;
 
   CloudinaryService() {
     final cloudName = dotenv.env['CLOUDINARY_CLOUD_NAME'];
@@ -34,7 +33,6 @@ class CloudinaryService {
       );
     }
 
-    _uploadPreset = uploadPreset;
     _cloudinary = CloudinaryPublic(
       cloudName,
       uploadPreset,

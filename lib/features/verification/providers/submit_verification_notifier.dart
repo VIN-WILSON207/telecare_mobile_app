@@ -1,24 +1,22 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth/providers/auth_providers.dart';
-import '../../auth/providers/auth_state.dart';
+import 'package:flutter/widgets.dart';
+import 'package:telecare_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:telecare_mobile_app/features/auth/providers/auth_state.dart';
 import '../data/models/verification_request_model.dart';
 import 'verification_providers.dart';
 
 /// Tracks the upload progress of the verification documents (0.0 to 1.0).
-final submitVerificationProgressProvider = StateProvider.autoDispose<double>((ref) => 0.0);
+final submitVerificationProgressProvider = Provider.autoDispose<ValueNotifier<double>>((ref) {
+  final notifier = ValueNotifier<double>(0.0);
+  ref.onDispose(() => notifier.dispose());
+  return notifier;
+});
 
 /// Manages the state of the verification submission workflow.
-///
-/// State transitions:
-/// - Initial: [AsyncValue.data(null)] (idle)
-/// - Submitting: [AsyncValue.loading()]
-/// - Success: [AsyncValue.data(null)] (indicates completed submission)
-/// - Failure: [AsyncValue.error(error, stackTrace)]
-class SubmitVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
+class SubmitVerificationNotifier extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {
-    // Return nothing initially (idle state)
     return null;
   }
 
@@ -40,7 +38,7 @@ class SubmitVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
 
     final doctor = authState.user;
     state = const AsyncValue.loading();
-    ref.read(submitVerificationProgressProvider.notifier).state = 0.0;
+    ref.read(submitVerificationProgressProvider).value = 0.0;
 
     try {
       final cloudinary = ref.read(cloudinaryServiceProvider);
@@ -50,8 +48,8 @@ class SubmitVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
       double licenseProgress = 0.0;
 
       void updateOverallProgress() {
-        ref.read(submitVerificationProgressProvider.notifier).state =
-            (idProgress + licenseProgress) / 2.0;
+        ref.read(submitVerificationProgressProvider).value =
+        (idProgress + licenseProgress) / 2.0;
       }
 
       // 1. Upload National ID
@@ -95,6 +93,6 @@ class SubmitVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
 
 /// Provider for the SubmitVerificationNotifier.
 final submitVerificationProvider =
-    AutoDisposeAsyncNotifierProvider<SubmitVerificationNotifier, void>(
+    AsyncNotifierProvider.autoDispose<SubmitVerificationNotifier, void>(
   SubmitVerificationNotifier.new,
 );

@@ -16,7 +16,7 @@
 | Metric | Status / Value |
 | :--- | :--- |
 | **Overall Project Progress** | **46%** |
-| **Completed Modules / Phases** | **3 / 9** |
+| **Completed Modules / Phases** | **4 / 9** |
 | **Completed Features** | **27 / 59** |
 | **Open Issues / Blockers** | **2** |
 | **Current Git Branch** | `feature/auth` |
@@ -146,25 +146,25 @@ This project targets the development of a secured, cross-platform mobile telemed
 ### Phase 4 — Appointment Management
 * **Objectives:** Enable patients to find doctors and request bookings; doctors to manage requests.
 * **Features:**
-  - View list of verified doctors `[ ]`
-  - Request/book appointment (Firestore `/appointments`) `[ ]`
-  - Doctor dashboard to view incoming requests `[ ]`
-  - Approve appointment booking `[ ]`
-  - Reject appointment booking `[ ]`
-  - Real-time appointment status tracking (Pending, Approved, Rejected, Completed) `[ ]`
+  - View list of verified doctors `[x]`
+  - Request/book appointment (Firestore `/appointments`) `[x]`
+  - Doctor dashboard to view incoming requests `[x]`
+  - Approve appointment booking `[x]`
+  - Reject appointment booking `[x]`
+  - Real-time appointment status tracking (Pending, Approved, Rejected, Completed) `[x]`
   - Push notifications on status change `[ ]`
 * **Deliverables:**
-  - Doctor search & selection interface `[ ]`
-  - Booking form dialog `[ ]`
-  - Appointment list and status views `[ ]`
+  - Doctor search & selection interface `[x]`
+  - Booking form dialog `[x]`
+  - Appointment list and status views `[x]`
   - Service for notification triggers `[ ]`
 * **Acceptance Criteria:**
-  - Patients can see list of verified doctors only `[ ]`
-  - Patients can create appointment requests `[ ]`
-  - Doctors receive real-time updates and can approve/reject `[ ]`
-  - Appointment states are updated atomically in Firestore `[ ]`
-* **Progress:** 0%
-* **Completion Status:** Planned (Next up)
+  - Patients can see list of verified doctors only `[x]`
+  - Patients can create appointment requests `[x]`
+  - Doctors receive real-time updates and can approve/reject `[x]`
+  - Appointment states are updated atomically in Firestore `[x]`
+* **Progress:** 85%
+* **Completion Status:** Near completion (core booking and doctor-management flow implemented; reminder/FCM notification integration remains)
 
 ---
 
@@ -324,11 +324,11 @@ This project targets the development of a secured, cross-platform mobile telemed
 ---
 
 ### 4. Appointments Module
-- [ ] View verified doctors list
-- [ ] Book appointment
-- [ ] Approve appointment booking
-- [ ] Reject appointment booking
-- [ ] Appointment status tracking (Pending, Approved, Rejected, Completed)
+- [4] View verified doctors list
+- [4] Book appointment
+- [4] Approve appointment booking
+- [4] Reject appointment booking
+- [4] Appointment status tracking (Pending, Approved, Rejected, Completed)
 - [ ] Notifications integration (FCM) on status changes
 
 ---
@@ -403,7 +403,7 @@ This project targets the development of a secured, cross-platform mobile telemed
    - Users can register, log in, define roles, and maintain authenticated sessions securely.
 2. **Milestone 2: Healthcare Professional Verification Complete** `[x]`
    - Doctors can upload credentials to Cloudinary, admins can review and update statuses, and GoRouter blocks unverified doctors.
-3. **Milestone 3: Appointments Complete** `[ ]`
+3. **Milestone 3: Appointments Complete** `[x]`
    - Patients can view active doctors and book slots; doctors can accept or reject bookings.
 4. **Milestone 4: Consultation Complete** `[ ]`
    - Real-time video/audio call functionality is fully integrated using the Jitsi SDK.

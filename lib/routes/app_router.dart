@@ -6,6 +6,7 @@ import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../features/auth/providers/auth_providers.dart';
 import '../features/auth/providers/auth_state.dart';
+import '../features/appointments/presentation/appointments_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
 import '../features/verification/presentation/screens/verification_status_screen.dart';
@@ -41,7 +42,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // User is logged in
-      final user = (authState as AuthAuthenticated).user;
+      final user = authState.user;
       final isDoctor = user.role.value == 'doctor';
       final isVerified = user.verificationStatus.toLowerCase() == 'approved';
 
@@ -129,9 +130,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/appointments',
         name: 'appointments',
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Appointments Screen (Verified Only)')),
-        ),
+        builder: (context, state) => const AppointmentsScreen(),
       ),
       GoRoute(
         path: '/consultations',

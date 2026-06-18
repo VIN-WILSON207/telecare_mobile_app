@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../providers/review_verification_notifier.dart';
-import '../providers/verification_providers.dart';
-import '../widgets/document_viewer.dart';
+import 'package:telecare_mobile_app/features/verification/providers/review_verification_notifier.dart';
+import 'package:telecare_mobile_app/features/verification/providers/verification_providers.dart';
+import 'package:telecare_mobile_app/features/verification/presentation/widgets/document_viewer.dart';
 
 class VerificationReviewScreen extends ConsumerStatefulWidget {
   final String requestId;
@@ -94,9 +94,9 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.05),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.15)),
+                            border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +160,7 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
                       border: Border(top: BorderSide(color: Colors.grey.shade200)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.shade300.withOpacity(0.5),
+                          color: Colors.grey.shade300.withValues(alpha: 0.5),
                           blurRadius: 10,
                           offset: const Offset(0, -4),
                         ),
@@ -223,7 +223,7 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
                 if (isProcessing)
                   Positioned.fill(
                     child: Container(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       child: const Center(
                         child: CircularProgressIndicator(),
                       ),
