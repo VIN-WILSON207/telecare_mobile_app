@@ -65,7 +65,7 @@ class StatusCard extends StatelessWidget {
         border: Border.all(color: borderStrokeColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: borderStrokeColor.withOpacity(0.1),
+            color: borderStrokeColor.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -81,7 +81,7 @@ class StatusCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: contentColor.withOpacity(0.1),
+                  color: contentColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -106,7 +106,7 @@ class StatusCard extends StatelessWidget {
                     Text(
                       'Submitted on $formattedDate',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: contentColor.withOpacity(0.8),
+                        color: contentColor.withValues(alpha: 0.8),
                         fontSize: 12,
                       ),
                     ),
@@ -116,12 +116,12 @@ class StatusCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Divider(color: borderStrokeColor.withOpacity(0.5)),
+          Divider(color: borderStrokeColor.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text(
             statusSubtitle,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: contentColor.withOpacity(0.9),
+              color: contentColor.withValues(alpha: 0.9),
               height: 1.4,
             ),
           ),

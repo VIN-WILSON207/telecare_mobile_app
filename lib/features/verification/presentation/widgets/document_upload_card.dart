@@ -74,7 +74,7 @@ class DocumentUploadCard extends StatelessWidget {
 
           // Upload content area
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, bottom: 16),
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
             child: hasFile
                 ? _buildFilePreview(context)
                 : _buildDottedPlaceholder(context),
@@ -83,7 +83,7 @@ class DocumentUploadCard extends StatelessWidget {
           // Upload progress bar if active
           if (isUploading) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, bottom: 12),
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -109,7 +109,7 @@ class DocumentUploadCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   LinearProgressIndicator(
                     value: progress,
-                    backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                    backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                     color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -134,7 +134,7 @@ class DocumentUploadCard extends StatelessWidget {
           color: Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: theme.colorScheme.primary.withOpacity(0.3),
+            color: theme.colorScheme.primary.withValues(alpha: 0.3),
             style: BorderStyle.solid, // Fallback for dotted in standard flutter
             width: 1.5,
           ),
