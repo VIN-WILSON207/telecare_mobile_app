@@ -24,6 +24,11 @@ class AuthAuthenticated extends AuthState {
   const AuthAuthenticated(this.user);
 }
 
+/// A splash screen animation is currently playing (first install).
+class AuthSplash extends AuthState {
+  const AuthSplash();
+}
+
 /// No user is signed in.
 class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated();
@@ -38,4 +43,17 @@ class AuthError extends AuthState {
 /// A password-reset email was sent successfully.
 class AuthPasswordResetSent extends AuthState {
   const AuthPasswordResetSent();
+}
+
+/// Firebase Phone Auth: SMS OTP has been sent to [phone].
+/// [verificationId] is needed to confirm the code later.
+class AuthOtpSent extends AuthState {
+  final String verificationId;
+  final String phone;
+  const AuthOtpSent({required this.verificationId, required this.phone});
+}
+
+/// The phone number has been successfully verified via OTP.
+class AuthPhoneVerified extends AuthState {
+  const AuthPhoneVerified();
 }

@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
-import 'package:telecare_mobile_app/features/auth/providers/auth_providers.dart';
-import 'package:telecare_mobile_app/features/auth/providers/auth_state.dart';
+
+// Riverpod's AutoDisposeAsyncNotifier provides `ref` and `state`.
+
+import '../../auth/providers/auth_providers.dart';
+import '../../auth/providers/auth_state.dart';
 import '../data/models/verification_request_model.dart';
 import 'verification_providers.dart';
 
@@ -15,10 +18,13 @@ final submitVerificationProgressProvider = Provider.autoDispose<ValueNotifier<do
 
 /// Manages the state of the verification submission workflow.
 class SubmitVerificationNotifier extends AsyncNotifier<void> {
+
   @override
   FutureOr<void> build() {
+    // No initial work needed; state is driven by [submit].
     return null;
   }
+
 
   /// Validates, uploads documents to Cloudinary, and saves the request to Firestore.
   ///

@@ -80,6 +80,7 @@ class AppointmentRepository {
     await _firestore.collection('appointments').doc(appointmentId).update({
       'status': status,
       'updatedAt': Timestamp.fromDate(DateTime.now()),
+      // ignore: use_null_aware_elements
       if (notes != null) 'notes': notes,
     });
   }

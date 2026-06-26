@@ -15,9 +15,9 @@
 
 | Metric | Status / Value |
 | :--- | :--- |
-| **Overall Project Progress** | **46%** |
-| **Completed Modules / Phases** | **4 / 9** |
-| **Completed Features** | **27 / 59** |
+| **Overall Project Progress** | **55%** |
+| **Completed Modules / Phases** | **3 / 9** |
+| **Completed Features** | **34 / 62** |
 | **Open Issues / Blockers** | **2** |
 | **Current Git Branch** | `feature/auth` |
 | **Last Merged Feature** | `feat: add authentication module structure` (`fa50069`) |
@@ -324,11 +324,11 @@ This project targets the development of a secured, cross-platform mobile telemed
 ---
 
 ### 4. Appointments Module
-- [4] View verified doctors list
-- [4] Book appointment
-- [4] Approve appointment booking
-- [4] Reject appointment booking
-- [4] Appointment status tracking (Pending, Approved, Rejected, Completed)
+- [x] View verified doctors list
+- [x] Book appointment
+- [x] Approve appointment booking
+- [x] Reject appointment booking
+- [x] Appointment status tracking (Pending, Approved, Rejected, Completed)
 - [ ] Notifications integration (FCM) on status changes
 
 ---
