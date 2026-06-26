@@ -5,7 +5,7 @@ import '../../auth/providers/auth_state.dart';
 import 'verification_providers.dart';
 
 /// Manages the state of the verification review actions (approve/reject).
-class ReviewVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
+class ReviewVerificationNotifier extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {
     return null;
@@ -80,6 +80,6 @@ class ReviewVerificationNotifier extends AutoDisposeAsyncNotifier<void> {
 
 /// Provider for ReviewVerificationNotifier.
 final reviewVerificationProvider =
-    AutoDisposeAsyncNotifierProvider<ReviewVerificationNotifier, void>(
+    AsyncNotifierProvider<ReviewVerificationNotifier, void>(
   ReviewVerificationNotifier.new,
 );
