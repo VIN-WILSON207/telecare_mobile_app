@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:telecare_mobile_app/features/auth/providers/auth_providers.dart';
-import 'package:telecare_mobile_app/features/auth/providers/auth_state.dart';
-import 'package:telecare_mobile_app/features/verification/providers/verification_providers.dart';
+import '../../auth/providers/auth_providers.dart';
+import '../../auth/providers/auth_state.dart';
+import 'verification_providers.dart';
 
 /// Manages the state of the verification review actions (approve/reject).
 class ReviewVerificationNotifier extends AsyncNotifier<void> {
@@ -80,6 +80,6 @@ class ReviewVerificationNotifier extends AsyncNotifier<void> {
 
 /// Provider for ReviewVerificationNotifier.
 final reviewVerificationProvider =
-    AsyncNotifierProvider.autoDispose<ReviewVerificationNotifier, void>(
+    AsyncNotifierProvider<ReviewVerificationNotifier, void>(
   ReviewVerificationNotifier.new,
 );

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/auth_repository.dart';
 import 'auth_notifier.dart';
 import 'auth_state.dart';
+export '../../../core/providers/shared_preferences_provider.dart';
 
 /// Provides the singleton [FirebaseAuth] instance.
 final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {

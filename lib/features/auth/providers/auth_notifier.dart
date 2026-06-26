@@ -1,53 +1,149 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart'
-    show FirebaseAuthException, FirebaseException;
+    show FirebaseAuthException;
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_role.dart';
 import '../data/repositories/auth_repository.dart';
 import 'auth_providers.dart';
 import 'auth_state.dart';
 
-/// A [Notifier] that manages the current [AuthState].
-///
-/// All auth operations (register, login, forgot-password, logout) funnel
-/// through this notifier so the UI only needs to watch a single provider.
-class AuthNotifier extends Notifier<AuthState> {
+/// A [Notifier] that manages Auth state, Session timeouts, and First-install logic.
+class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
+  static const _lastActivityKey = 'last_activity_timestamp';
+  static const _isFirstInstallKey = 'is_first_install';
+
   @override
   AuthState build() {
-    // Check if a user is already signed in on construction.
-    _checkCurrentUser();
-    return const AuthInitial();
+    debugPrint('[AuthNotifier] build()');
+    WidgetsBinding.instance.addObserver(this);
+    ref.onDispose(() => WidgetsBinding.instance.removeObserver(this));
+
+    // Initialize in a microtask to avoid blocking the initial build
+    Future.microtask(() => _initializeAuth());
+    return const AuthLoading();
   }
 
-  /// Convenience getter for the injected repository.
   AuthRepository get _repository => ref.read(authRepositoryProvider);
 
-  // ---------------------------------------------------------------------------
-  // Initial check
-  // ---------------------------------------------------------------------------
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('[AuthNotifier] Lifecycle: $state');
+    if (state == AppLifecycleState.resumed) {
+      _checkSessionTimeout();
+    } else if (state == AppLifecycleState.paused) {
+      updateActivity();
+    }
+  }
 
-  Future<void> _checkCurrentUser() async {
-    final firebaseUser = _repository.currentUser;
-    if (firebaseUser != null) {
-      try {
-        final profile = await _repository.getUserProfile(firebaseUser.uid);
-        if (profile != null) {
-          state = AuthAuthenticated(profile);
-        } else {
-          state = const AuthUnauthenticated();
-        }
-      } catch (_) {
-        state = const AuthUnauthenticated();
+  /// Combined logic for First Install, Session Timeout, and Auth Check.
+  Future<void> _initializeAuth() async {
+    debugPrint('[AuthNotifier] _initializeAuth started');
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+
+      // 1. Check First Install
+      final isFirstInstall = prefs.getBool(_isFirstInstallKey) ?? true;
+      if (isFirstInstall) {
+        debugPrint('[AuthNotifier] First Install logic: Showing splash.');
+        state = const AuthSplash(); // Let the router know we are in splash state
+        return;
       }
-    } else {
+
+      // 2. Check Session Timeout (30 minutes)
+      final sessionExpired = await _checkSessionTimeout();
+      if (sessionExpired) {
+        debugPrint('[AuthNotifier] Session expired at startup.');
+        return; // state already set in _checkSessionTimeout
+      }
+
+      // 3. Regular Firebase Auth Check
+      final firebaseUser = _repository.currentUser;
+      if (firebaseUser != null) {
+        debugPrint('[AuthNotifier] User ${firebaseUser.uid} found. Fetching profile...');
+        final profile = await _repository.getUserProfile(firebaseUser.uid).timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => null,
+        );
+        
+        if (profile != null) {
+          debugPrint('[AuthNotifier] Profile loaded. Authenticated.');
+          state = AuthAuthenticated(profile);
+          await updateActivity();
+          return;
+        }
+      }
+      
+      debugPrint('[AuthNotifier] No session/user. Unauthenticated.');
+      state = const AuthUnauthenticated();
+    } catch (e) {
+      debugPrint('[AuthNotifier] Init fatal error: $e');
       state = const AuthUnauthenticated();
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Register
-  // ---------------------------------------------------------------------------
+  /// Sets state to Unauthenticated and returns true if session expired.
+  Future<bool> _checkSessionTimeout() async {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final lastActivityStr = prefs.getString(_lastActivityKey);
+      
+      if (lastActivityStr != null) {
+        final lastActivity = DateTime.parse(lastActivityStr);
+        final difference = DateTime.now().difference(lastActivity);
+        
+        if (difference.inMinutes >= 30) {
+          debugPrint('[AuthNotifier] Session expired: ${difference.inMinutes} mins.');
+          await logout(); // Forces unauthenticated state
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('[AuthNotifier] Session check error: $e');
+    }
+    return false;
+  }
 
-  /// Registers a new user and transitions to [AuthAuthenticated].
+  /// Refreshes the last active timestamp.
+  Future<void> updateActivity() async {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setString(_lastActivityKey, DateTime.now().toIso8601String());
+    } catch (_) {}
+  }
+
+  Future<void> login({required String email, required String password}) async {
+    state = const AuthLoading();
+    // Yield to the UI so AuthLoading renders before the Firebase call starts
+    await Future.delayed(Duration.zero);
+    try {
+      final user = await _repository.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      await updateActivity();
+      state = AuthAuthenticated(user);
+    } on FirebaseAuthException catch (e) {
+      state = AuthError(_mapFirebaseError(e.code));
+    } catch (e) {
+      state = AuthError(e.toString());
+    }
+  }
+
+  Future<void> forgotPassword({required String email}) async {
+    state = const AuthLoading();
+    try {
+      await _repository.sendPasswordResetEmail(email: email);
+      state = const AuthPasswordResetSent();
+    } on FirebaseAuthException catch (e) {
+      state = AuthError(_mapFirebaseError(e.code));
+    } catch (e) {
+      state = AuthError(e.toString());
+    }
+  }
+
   Future<void> register({
     required String fullName,
     required String email,
@@ -56,6 +152,8 @@ class AuthNotifier extends Notifier<AuthState> {
     required UserRole role,
   }) async {
     state = const AuthLoading();
+    // Yield to the UI so AuthLoading renders before the Firebase call starts
+    await Future.delayed(Duration.zero);
     try {
       final user = await _repository.registerWithEmailAndPassword(
         fullName: fullName,
@@ -64,78 +162,86 @@ class AuthNotifier extends Notifier<AuthState> {
         phone: phone,
         role: role,
       );
+      await updateActivity();
+      // After registration, send phone OTP
       state = AuthAuthenticated(user);
+      // Now initiate phone verification
+      await sendPhoneOtp(phone: phone);
     } on FirebaseAuthException catch (e) {
-      state = AuthError(_mapFirebaseError(e.code));
-    } on FirebaseException catch (e) {
       state = AuthError(_mapFirebaseError(e.code));
     } catch (e) {
       state = AuthError(e.toString());
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------------------------
+  /// Send OTP to the given phone number via a generated mock code for development.
+  Future<void> sendPhoneOtp({required String phone}) async {
+    state = const AuthLoading();
+    try {
+      // Simulate network latency
+      await Future.delayed(const Duration(milliseconds: 600));
+      
+      // Generate a 6-digit random code
+      final generatedCode = List.generate(6, (_) => math.Random().nextInt(10).toString()).join();
+      debugPrint('[AuthNotifier] DEVELOPMENT ONLY: Generated Phone OTP code for $phone is: $generatedCode');
+      
+      // Pass the code as verificationId so we can check it in verifyPhoneOtp
+      state = AuthOtpSent(verificationId: generatedCode, phone: phone);
+    } catch (e) {
+      state = AuthError('Failed to generate mock OTP: ${e.toString()}');
+    }
+  }
 
-  /// Signs in an existing user and transitions to [AuthAuthenticated].
-  Future<void> login({
-    required String email,
-    required String password,
+  /// Verify the OTP code entered by the user.
+  Future<void> verifyPhoneOtp({
+    required String verificationId,
+    required String smsCode,
   }) async {
     state = const AuthLoading();
     try {
-      final user = await _repository.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      state = AuthAuthenticated(user);
-    } on FirebaseAuthException catch (e) {
-      state = AuthError(_mapFirebaseError(e.code));
-    } on FirebaseException catch (e) {
-      state = AuthError(_mapFirebaseError(e.code));
+      // Simulate network verification latency
+      await Future.delayed(const Duration(milliseconds: 600));
+      
+      if (smsCode == verificationId) {
+        final auth = ref.read(firebaseAuthProvider);
+        final uid = auth.currentUser?.uid;
+        if (uid != null) {
+          final profile = await _repository.getUserProfile(uid);
+          if (profile != null) {
+            await updateActivity();
+            state = AuthAuthenticated(profile);
+            return;
+          }
+        }
+        state = const AuthPhoneVerified();
+      } else {
+        state = const AuthError('The OTP code is incorrect. Please try again.');
+      }
     } catch (e) {
-      state = AuthError(e.toString());
+      state = AuthError('OTP verification failed: ${e.toString()}');
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Forgot password
-  // ---------------------------------------------------------------------------
-
-  /// Sends a password-reset email.
-  Future<void> forgotPassword({required String email}) async {
-    state = const AuthLoading();
-    try {
-      await _repository.sendPasswordResetEmail(email: email);
-      state = const AuthPasswordResetSent();
-    } on FirebaseAuthException catch (e) {
-      state = AuthError(_mapFirebaseError(e.code));
-    } on FirebaseException catch (e) {
-      state = AuthError(_mapFirebaseError(e.code));
-    } catch (e) {
-      state = AuthError(e.toString());
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Logout
-  // ---------------------------------------------------------------------------
-
-  /// Signs the current user out and transitions to [AuthUnauthenticated].
   Future<void> logout() async {
-    state = const AuthLoading();
     try {
-      await _repository.signOut();
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.remove(_lastActivityKey);
+      await _repository.signOut().catchError((_){});
+    } finally {
+      state = const AuthUnauthenticated();
+    }
+  }
+
+  /// Marks the first-install splash as complete and moves to unauthenticated.
+  Future<void> completeSplash() async {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(_isFirstInstallKey, false);
       state = const AuthUnauthenticated();
     } catch (e) {
-      state = AuthError(e.toString());
+      state = const AuthUnauthenticated();
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Error mapping
-  // ---------------------------------------------------------------------------
 
   /// Converts raw Firebase error codes into user-friendly messages.
   String _mapFirebaseError(String code) {
@@ -162,6 +268,14 @@ class AuthNotifier extends Notifier<AuthState> {
         return 'Invalid credentials. Please check your email and password.';
       case 'profile-not-found':
         return 'User profile not found. Please contact support.';
+      case 'invalid-phone-number':
+        return 'The phone number is invalid. Include country code (e.g. +237).';
+      case 'invalid-verification-code':
+        return 'The OTP code is incorrect. Please try again.';
+      case 'session-expired':
+        return 'OTP session expired. Please request a new code.';
+      case 'quota-exceeded':
+        return 'SMS quota exceeded. Please try again later.';
       default:
         return 'An unexpected error occurred. Please try again.';
     }
