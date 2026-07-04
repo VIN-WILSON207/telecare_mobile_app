@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../../core/widgets/message_input_field.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class PatientMessagesView extends ConsumerStatefulWidget {
@@ -428,51 +429,9 @@ class _ChatDetailScreenState extends State<_ChatDetailScreen> {
               ),
             ),
 
-          // Chat Input field
-          Container(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(context).padding.bottom + 8,
-              top: 8,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'Type your message...',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor),
-                  onPressed: () => _sendMessage(_messageController.text),
-                ),
-              ],
-            ),
+          MessageInputField(
+            controller: _messageController,
+            onSend: () => _sendMessage(_messageController.text),
           ),
         ],
       ),

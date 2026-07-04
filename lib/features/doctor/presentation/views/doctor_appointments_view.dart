@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
+import '../../../consultation/data/exceptions/consultation_exceptions.dart';
+import '../../../consultation/providers/consultation_providers.dart';
+import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/service_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class DoctorAppointmentsView extends ConsumerStatefulWidget {
@@ -310,7 +314,52 @@ class _DoctorRequestCard extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    await repository.updateAppointmentStatus(
+                    final consultationRepo =
+                        ref.read(consultationRepositoryProvider);
+                    final notificationSvc =
+                        ref.read(notificationServiceProvider);
+                    final appointmentRepo =
+                        ref.read(appointmentRepositoryProvider);
+
+                    try {
+                      // Step 1: Create consultation (throws on duplicate or Firestore fail)
+                      await consultationRepo.createConsultation(appointment);
+                    } on DuplicateConsultationException {
+                      // Consultation already exists — still approve
+                    } on ConsultationCreationException {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to create consultation session. Please try again.',
+                            ),
+                          ),
+                        );
+                      }
+                      return; // Do NOT update appointment status
+                    }
+
+                    // Step 2: Notify patient
+                    try {
+                      final payload =
+                          NotificationService.buildAppointmentApprovedPayload(
+                        doctorName: appointment.doctorName,
+                        appointmentDate:
+                            _formatDate(appointment.appointmentDate),
+                      );
+                      await notificationSvc.sendNotification(
+                        targetUserId: appointment.patientId,
+                        title: payload['title'] as String,
+                        body: payload['body'] as String,
+                        data: Map<String, String>.from(
+                            payload['data'] as Map),
+                      );
+                    } catch (_) {
+                      // Notification failure is non-blocking
+                    }
+
+                    // Step 3: Update appointment status
+                    await appointmentRepo.updateAppointmentStatus(
                       appointment.id,
                       status: 'approved',
                     );
@@ -626,4 +675,3 @@ class _ErrorCard extends StatelessWidget {
     );
   }
 }
-

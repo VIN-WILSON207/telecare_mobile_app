@@ -38,15 +38,18 @@ class AppointmentsScreen extends ConsumerWidget {
     final isDoctor = user.role == UserRole.doctor;
     final title = isDoctor ? 'Appointment Requests' : 'Appointments';
 
-    return Scaffold(
-      backgroundColor: AppTheme.neutralBackground,
-      appBar: TeleCareTabAppBar(title: title, user: user),
-      body: isDoctor
-          ? DoctorAppointmentsView(user: user)
-          : PatientAppointmentsView(user: user),
-      bottomNavigationBar: isDoctor
-          ? const DoctorBottomNavBar(currentPath: '/appointments')
-          : const PatientBottomNavBar(currentPath: '/appointments'),
+    return TeleCareHomeBackScope(
+      currentPath: '/appointments',
+      child: Scaffold(
+        backgroundColor: AppTheme.neutralBackground,
+        appBar: TeleCareTabAppBar(title: title, user: user),
+        body: isDoctor
+            ? DoctorAppointmentsView(user: user)
+            : PatientAppointmentsView(user: user),
+        bottomNavigationBar: isDoctor
+            ? const DoctorBottomNavBar(currentPath: '/appointments')
+            : const PatientBottomNavBar(currentPath: '/appointments'),
+      ),
     );
   }
 }

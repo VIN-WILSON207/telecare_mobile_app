@@ -23,20 +23,23 @@ class MessagesScreen extends ConsumerWidget {
 
     final user = authState.user;
 
-    return Scaffold(
-      backgroundColor: AppTheme.neutralBackground,
-      appBar: TeleCareTabAppBar(title: 'Chats & Messages', user: user),
-      body: user.role == UserRole.patient
-          ? PatientMessagesView(user: user)
-          : const Center(
-              child: Text(
-                'Doctor messages are managed through active consultations.',
-                style: TextStyle(color: AppTheme.neutralMedium),
+    return TeleCareHomeBackScope(
+      currentPath: '/messages',
+      child: Scaffold(
+        backgroundColor: AppTheme.neutralBackground,
+        appBar: TeleCareTabAppBar(title: 'Chats & Messages', user: user),
+        body: user.role == UserRole.patient
+            ? PatientMessagesView(user: user)
+            : const Center(
+                child: Text(
+                  'Doctor messages are managed through active consultations.',
+                  style: TextStyle(color: AppTheme.neutralMedium),
+                ),
               ),
-            ),
-      bottomNavigationBar: user.role == UserRole.doctor
-          ? const DoctorBottomNavBar(currentPath: '/messages')
-          : const PatientBottomNavBar(currentPath: '/messages'),
+        bottomNavigationBar: user.role == UserRole.doctor
+            ? const DoctorBottomNavBar(currentPath: '/messages')
+            : const PatientBottomNavBar(currentPath: '/messages'),
+      ),
     );
   }
 }

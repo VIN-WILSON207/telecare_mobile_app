@@ -18,13 +18,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   final _formKeys = [
     GlobalKey<FormState>(),
     GlobalKey<FormState>(),
-    GlobalKey<FormState>(),
   ];
 
-  // Step 1: Personal Info
+  // Step 1: Role
+  UserRole _selectedRole = UserRole.patient;
+
+  // Step 2: Personal Info + Security
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController(text: '+237 ');
+  final _dateOfBirthController = TextEditingController();
+  DateTime? _dateOfBirth;
+  String? _selectedGender;
 
   // Step 2: Security
   final _passwordController = TextEditingController();
@@ -32,11 +37,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  // Step 3: Role
-  UserRole _selectedRole = UserRole.patient;
-
   int _currentStep = 0;
-  static const int _totalSteps = 3;
+  static const int _totalSteps = 2;
 
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -52,21 +54,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Color get _strengthColor {
     switch (_passwordStrength) {
-      case 1: return AppTheme.errorColor;
-      case 2: return AppTheme.warningColor;
-      case 3: return AppTheme.infoColor;
-      case 4: return AppTheme.successColor;
-      default: return AppTheme.neutralLight;
+      case 1:
+        return AppTheme.errorColor;
+      case 2:
+        return AppTheme.warningColor;
+      case 3:
+        return AppTheme.infoColor;
+      case 4:
+        return AppTheme.successColor;
+      default:
+        return AppTheme.neutralLight;
     }
   }
 
   String get _strengthLabel {
     switch (_passwordStrength) {
-      case 1: return 'Weak';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Strong';
-      default: return '';
+      case 1:
+        return 'Weak';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Strong';
+      default:
+        return '';
     }
   }
 
@@ -89,6 +101,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _dateOfBirthController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _slideController.dispose();
@@ -117,12 +130,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }
 
   Future<void> _handleRegister() async {
-    await ref.read(authNotifierProvider.notifier).register(
+    await ref
+        .read(authNotifierProvider.notifier)
+        .register(
           fullName: _fullNameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
           phone: _phoneController.text.trim(),
           role: _selectedRole,
+          dateOfBirth: _dateOfBirth!,
+          gender: _selectedGender!,
         );
   }
 
@@ -132,12 +149,35 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final isLoading = authState is AuthLoading;
 
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-      if (next is AuthOtpSent) {
-        context.push('/phone-otp',
-            extra: {'verificationId': next.verificationId, 'phone': next.phone});
-      } else if (next is AuthAuthenticated) {
-        // OTP not triggered yet (edge case), go home
-        context.go('/home');
+      if (next is AuthRegistrationSuccess) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            icon: const Icon(
+              Icons.check_circle_outline_rounded,
+              color: AppTheme.successColor,
+              size: 48,
+            ),
+            title: const Text(
+              'Registration Successful',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Text(
+              'Your TeleCare account has been created successfully. Please sign in to access your dashboard.',
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.go('/login');
+                },
+                child: const Text('Sign In Now'),
+              ),
+            ],
+          ),
+        );
       } else if (next is AuthError) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -145,7 +185,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(next.message)),
                 ],
@@ -235,7 +279,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       const SizedBox(height: 20),
                       Text(
                         'Create Account',
-                        style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        style: Theme.of(context).textTheme.headlineLarge
+                            ?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
                             ),
@@ -245,7 +290,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         'Step ${_currentStep + 1} of $_totalSteps · ${_stepTitle(_currentStep)}',
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          fontSize: 13,
+                          fontSize: 16,
                           color: Colors.white.withValues(alpha: 0.72),
                         ),
                       ),
@@ -288,21 +333,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   String _stepTitle(int step) {
     switch (step) {
-      case 0: return 'Personal Information';
-      case 1: return 'Set Password';
-      case 2: return 'Choose Role';
-      default: return '';
+      case 0:
+        return 'Choose Role';
+      case 1:
+        return 'Personal Information';
+      default:
+        return '';
     }
   }
 
   Widget _buildStep(int step, bool isLoading) {
     switch (step) {
       case 0:
-        return _buildPersonalInfoStep(isLoading);
-      case 1:
-        return _buildPasswordStep(isLoading);
-      case 2:
         return _buildRoleStep(isLoading);
+      case 1:
+        return _buildPersonalInfoStep(isLoading);
       default:
         return const SizedBox.shrink();
     }
@@ -311,7 +356,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   // ── Step 1: Personal Info ─────────────────────────────────────────────────
   Widget _buildPersonalInfoStep(bool isLoading) {
     return Form(
-      key: _formKeys[0],
+      key: _formKeys[1],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -320,7 +365,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           TextFormField(
             controller: _fullNameController,
             enabled: !isLoading,
-            style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins', fontSize: 14),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(
               hintText: 'e.g. Vin-Wilson Anu',
@@ -328,7 +377,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Full name is required';
-              if (v.trim().length < 2) return 'Name must be at least 2 characters';
+              if (v.trim().length < 2) {
+                return 'Name must be at least 2 characters';
+              }
               return null;
             },
           ),
@@ -340,7 +391,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             controller: _emailController,
             enabled: !isLoading,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins', fontSize: 14),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
             decoration: const InputDecoration(
               hintText: 'you@example.com',
               prefixIcon: Icon(Icons.email_outlined),
@@ -361,24 +416,260 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             controller: _phoneController,
             enabled: !isLoading,
             keyboardType: TextInputType.phone,
-            style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins', fontSize: 14),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
             decoration: const InputDecoration(
               hintText: '+237 600 000 000',
               prefixIcon: Icon(Icons.phone_outlined),
               helperText: 'Include country code (e.g. +237 for Cameroon)',
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Phone number is required';
+              if (v == null || v.trim().isEmpty) {
+                return 'Phone number is required';
+              }
               if (v.trim().length < 8) return 'Enter a valid phone number';
               return null;
             },
+          ),
+          const SizedBox(height: 18),
+
+          _SectionLabel(label: 'Date of Birth', icon: Icons.cake_outlined),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _dateOfBirthController,
+            enabled: !isLoading,
+            readOnly: true,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
+            decoration: const InputDecoration(
+              hintText: 'Select your date of birth',
+              prefixIcon: Icon(Icons.cake_outlined),
+              suffixIcon: Icon(Icons.calendar_month_outlined),
+              helperText: 'Patients must be 18+, healthcare professionals 23+.',
+            ),
+            onTap: isLoading ? null : _pickDateOfBirth,
+            validator: (_) {
+              if (_dateOfBirth == null) return 'Date of birth is required';
+              final minAge = _minimumAgeForRole;
+              final age = _ageFromDob(_dateOfBirth!);
+              if (age < minAge) {
+                return _selectedRole == UserRole.doctor
+                    ? 'Healthcare professionals must be at least 23 years old'
+                    : 'Patients must be at least 18 years old';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 18),
+
+          _SectionLabel(label: 'Gender', icon: Icons.wc_outlined),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedGender,
+            dropdownColor: AppTheme.primarySurface,
+            items: const [
+              DropdownMenuItem(value: 'female', child: Text('Female')),
+              DropdownMenuItem(value: 'male', child: Text('Male')),
+              DropdownMenuItem(value: 'other', child: Text('Other')),
+              DropdownMenuItem(
+                value: 'prefer_not_to_say',
+                child: Text('Prefer not to say'),
+              ),
+            ],
+            onChanged: isLoading
+                ? null
+                : (value) => setState(() => _selectedGender = value),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Select gender',
+              prefixIcon: const Icon(Icons.wc_outlined),
+              fillColor: AppTheme.primarySurface,
+            ),
+            validator: (v) => v == null ? 'Gender is required' : null,
+          ),
+          const SizedBox(height: 18),
+
+          _SectionLabel(label: 'Create Password', icon: Icons.lock_outline),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            enabled: !isLoading,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Min. 6 characters',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppTheme.neutralLight,
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Password is required';
+              if (v.length < 6) return 'Minimum 6 characters required';
+              return null;
+            },
+          ),
+          if (_passwordController.text.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: List.generate(4, (i) {
+                return Expanded(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.only(right: 4),
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: i < _passwordStrength
+                          ? _strengthColor
+                          : AppTheme.neutralSurface,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Password strength:',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.neutralMedium,
+                  ),
+                ),
+                Text(
+                  _strengthLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: _strengthColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+
+          _SectionLabel(label: 'Confirm Password', icon: Icons.lock_outline),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: _obscureConfirmPassword,
+            enabled: !isLoading,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+            ),
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Repeat your password',
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: _confirmPasswordController.text.isNotEmpty
+                  ? Icon(
+                      _confirmPasswordController.text ==
+                              _passwordController.text
+                          ? Icons.check_circle_outline
+                          : Icons.cancel_outlined,
+                      color: _confirmPasswordController.text ==
+                              _passwordController.text
+                          ? AppTheme.successColor
+                          : AppTheme.errorColor,
+                    )
+                  : IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: AppTheme.neutralLight,
+                      ),
+                      onPressed: () => setState(
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                      ),
+                    ),
+            ),
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Please confirm your password';
+              if (v != _passwordController.text) {
+                return 'Passwords do not match';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.primarySurface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            ),
+            child: const Text(
+              'We use DOB and gender to personalize health preferences, reminders, and care recommendations.',
+              style: TextStyle(
+                color: AppTheme.neutralDark,
+                fontSize: 15,
+                height: 1.4,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final minAge = _minimumAgeForRole;
+    final latestAllowedDob = DateTime(now.year - minAge, now.month, now.day);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? latestAllowedDob,
+      firstDate: DateTime(now.year - 120),
+      lastDate: latestAllowedDob,
+    );
+    if (picked == null) return;
+    setState(() {
+      _dateOfBirth = picked;
+      _dateOfBirthController.text =
+          '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+    });
+  }
+
+  int get _minimumAgeForRole => _selectedRole == UserRole.doctor ? 23 : 18;
+
+  int _ageFromDob(DateTime dob) {
+    final today = DateTime.now();
+    var age = today.year - dob.year;
+    final birthdayThisYear = DateTime(today.year, dob.month, dob.day);
+    if (today.isBefore(birthdayThisYear)) age--;
+    return age;
+  }
+
   // ── Step 2: Password ──────────────────────────────────────────────────────
+  // ignore: unused_element
   Widget _buildPasswordStep(bool isLoading) {
     return Form(
       key: _formKeys[1],
@@ -391,7 +682,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             controller: _passwordController,
             obscureText: _obscurePassword,
             enabled: !isLoading,
-            style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins', fontSize: 14),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 17,
+            ),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Min. 6 characters',
@@ -440,17 +735,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               children: [
                 Text(
                   'Password strength:',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppTheme.neutralMedium),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.neutralMedium,
+                  ),
                 ),
                 Text(
                   _strengthLabel,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _strengthColor,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: _strengthColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -463,17 +757,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             controller: _confirmPasswordController,
             obscureText: _obscureConfirmPassword,
             enabled: !isLoading,
-            style: const TextStyle(color: Colors.black87, fontFamily: 'Poppins', fontSize: 14),
+            style: const TextStyle(
+              color: Colors.black87,
+              fontFamily: 'Poppins',
+              fontSize: 17,
+            ),
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Repeat your password',
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: _confirmPasswordController.text.isNotEmpty
                   ? Icon(
-                      _confirmPasswordController.text == _passwordController.text
+                      _confirmPasswordController.text ==
+                              _passwordController.text
                           ? Icons.check_circle_outline
                           : Icons.cancel_outlined,
-                      color: _confirmPasswordController.text ==
+                      color:
+                          _confirmPasswordController.text ==
                               _passwordController.text
                           ? AppTheme.successColor
                           : AppTheme.errorColor,
@@ -485,13 +785,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                             : Icons.visibility_outlined,
                         color: AppTheme.neutralLight,
                       ),
-                      onPressed: () => setState(() =>
-                          _obscureConfirmPassword = !_obscureConfirmPassword),
+                      onPressed: () => setState(
+                        () =>
+                            _obscureConfirmPassword = !_obscureConfirmPassword,
+                      ),
                     ),
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Please confirm your password';
-              if (v != _passwordController.text) return 'Passwords do not match';
+              if (v != _passwordController.text) {
+                return 'Passwords do not match';
+              }
               return null;
             },
           ),
@@ -503,21 +807,26 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             decoration: BoxDecoration(
               color: AppTheme.primarySurface,
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline,
-                    size: 16, color: AppTheme.primaryColor),
+                const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: AppTheme.primaryColor,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'By registering, you agree to our Terms of Service and Privacy Policy.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.primaryDark,
-                          height: 1.4,
-                        ),
+                      color: AppTheme.primaryDark,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
@@ -531,15 +840,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   // ── Step 3: Role Selection ────────────────────────────────────────────────
   Widget _buildRoleStep(bool isLoading) {
     return Form(
-      key: _formKeys[2],
+      key: _formKeys[0],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'I am a...',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.neutralMedium,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppTheme.neutralMedium),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -571,21 +880,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                 color: AppTheme.warningColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 border: Border.all(
-                    color: AppTheme.warningColor.withValues(alpha: 0.4)),
+                  color: AppTheme.warningColor.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      size: 16, color: AppTheme.warningColor),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: AppTheme.warningColor,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Healthcare professionals must upload their Medical License and Government ID for verification before accessing the platform.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.statusPendingText,
-                            height: 1.4,
-                          ),
+                        color: AppTheme.statusPendingText,
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ],
@@ -629,9 +942,7 @@ class _RoleCard extends StatelessWidget {
               : AppTheme.cardWhite,
           borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
           border: Border.all(
-            color: isSelected
-                ? AppTheme.primaryColor
-                : const Color(0xFFE2E8F0),
+            color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected ? AppTheme.cardShadow : [],
@@ -650,7 +961,9 @@ class _RoleCard extends StatelessWidget {
               child: Icon(
                 icon,
                 size: 26,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.neutralLight,
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.neutralLight,
               ),
             ),
             const SizedBox(width: 16),
@@ -661,25 +974,28 @@ class _RoleCard extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: isSelected
-                              ? AppTheme.primaryDark
-                              : AppTheme.neutralDark,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: isSelected
+                          ? AppTheme.primaryDark
+                          : AppTheme.neutralDark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.neutralMedium,
-                        ),
+                      color: AppTheme.neutralMedium,
+                    ),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle_rounded,
-                  color: AppTheme.primaryColor, size: 22),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppTheme.primaryColor,
+                size: 22,
+              ),
           ],
         ),
       ),
@@ -698,9 +1014,9 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: AppTheme.neutralDark,
-            fontWeight: FontWeight.w600,
-          ),
+        color: AppTheme.neutralDark,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -721,7 +1037,7 @@ class _GradientButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 54,
+      height: 58,
       decoration: BoxDecoration(
         gradient: isLoading
             ? null
@@ -765,7 +1081,7 @@ class _GradientButton extends StatelessWidget {
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,
                 ),

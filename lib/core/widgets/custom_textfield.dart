@@ -27,6 +27,7 @@ class CustomTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
+      style: const TextStyle(fontSize: 18, color: Colors.black87),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

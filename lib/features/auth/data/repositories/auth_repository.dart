@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
@@ -8,11 +10,9 @@ class AuthRepository {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
 
-  AuthRepository({
-    FirebaseAuth? firebaseAuth,
-    FirebaseFirestore? firestore,
-  })  : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+  AuthRepository({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
+    : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
 
   // ---------------------------------------------------------------------------
   // Auth state helpers
@@ -38,36 +38,75 @@ class AuthRepository {
     required String password,
     required String phone,
     required UserRole role,
+    required DateTime dateOfBirth,
+    required String gender,
   }) async {
-    // 1. Create Firebase Auth account
-    final credential = await _firebaseAuth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    try {
+      // 1. Create Firebase Auth account and wait for the credential.
+      final credential = await _firebaseAuth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          )
+          .timeout(const Duration(seconds: 20));
 
-    final user = credential.user;
-    if (user == null) {
+      final user = credential.user;
+      if (user == null || user.uid.isEmpty) {
+        throw AuthException(
+          code: 'null-user',
+          message: 'Registration succeeded but returned an invalid user.',
+        );
+      }
+
+      // 2. Force Firebase Auth to settle locally before Firestore rules evaluate
+      // request.auth for /users/{uid}.
+      final activeUser = await _waitForActiveUser(user.uid);
+      await activeUser.reload();
+      final token = await activeUser.getIdToken(true);
+      if (token == null || token.isEmpty) {
+        throw const AuthException(
+          code: 'missing-id-token',
+          message: 'Firebase Auth did not return an active ID token.',
+        );
+      }
+
+      final userModel = UserModel(
+        uid: activeUser.uid,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        role: role,
+        dateOfBirth: dateOfBirth,
+        gender: gender.trim(),
+        verificationStatus: 'unverified',
+        createdAt: DateTime.now(),
+      );
+
+      // 3. Persist the profile in Firestore
+      await _runWithFirestoreRetry(
+        () => _createUserProfile(userModel),
+      ).timeout(const Duration(seconds: 30));
+      return userModel;
+    } on AuthException {
+      rethrow;
+    } on FirebaseAuthException {
+      rethrow;
+    } on FirebaseException catch (e) {
       throw AuthException(
-        code: 'null-user',
-        message: 'Registration succeeded but returned a null user.',
+        code: 'firestore-${e.code}',
+        message: e.message ?? 'Firestore failed while saving your profile.',
+      );
+    } on TimeoutException {
+      throw const AuthException(
+        code: 'timeout',
+        message: 'Registration took too long. Please try again.',
+      );
+    } catch (e) {
+      throw AuthException(
+        code: e is AuthException ? e.code : 'registration-failed',
+        message: e.toString(),
       );
     }
-
-    // 2. Build the user model
-    final userModel = UserModel(
-      uid: user.uid,
-      fullName: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      role: role,
-      verificationStatus: 'unverified',
-      createdAt: DateTime.now(),
-    );
-
-    // 3. Persist the profile in Firestore
-    await _createUserProfile(userModel);
-
-    return userModel;
   }
 
   // ---------------------------------------------------------------------------
@@ -80,10 +119,12 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final credential = await _firebaseAuth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    final credential = await _firebaseAuth
+        .signInWithEmailAndPassword(
+          email: email.trim(),
+          password: password,
+        )
+        .timeout(const Duration(seconds: 20));
 
     final user = credential.user;
     if (user == null) {
@@ -94,7 +135,17 @@ class AuthRepository {
     }
 
     // Fetch the Firestore profile
-    final userModel = await getUserProfile(user.uid);
+    final token = await user.getIdToken(true);
+    if (token == null || token.isEmpty) {
+      throw const AuthException(
+        code: 'missing-id-token',
+        message: 'Firebase Auth did not return an active ID token.',
+      );
+    }
+
+    final userModel = await _runWithFirestoreRetry(
+      () => getUserProfile(user.uid),
+    ).timeout(const Duration(seconds: 30));
     if (userModel == null) {
       throw AuthException(
         code: 'profile-not-found',
@@ -129,10 +180,13 @@ class AuthRepository {
 
   /// Writes a new user profile document to the `users` collection.
   Future<void> _createUserProfile(UserModel userModel) async {
-    await _firestore
-        .collection('users')
-        .doc(userModel.uid)
-        .set(userModel.toMap());
+    final map = userModel.toMap();
+    map['createdAt'] =
+        FieldValue.serverTimestamp(); // Use server-side timestamp
+    await _firestore.collection('users').doc(userModel.uid).set(
+          map,
+          SetOptions(merge: true),
+        );
   }
 
   /// Reads the Firestore profile for [uid]. Returns `null` if not found.
@@ -140,6 +194,45 @@ class AuthRepository {
     final doc = await _firestore.collection('users').doc(uid).get();
     if (!doc.exists) return null;
     return UserModel.fromFirestore(doc);
+  }
+
+  Future<User> _waitForActiveUser(String uid) async {
+    final current = _firebaseAuth.currentUser;
+    if (current != null && current.uid == uid) return current;
+
+    final user = await _firebaseAuth.authStateChanges().firstWhere(
+          (candidate) => candidate != null && candidate.uid == uid,
+        ).timeout(const Duration(seconds: 8));
+
+    if (user == null || user.uid.isEmpty) {
+      throw const AuthException(
+        code: 'auth-state-not-ready',
+        message: 'Firebase Auth did not finish activating this session.',
+      );
+    }
+    return user;
+  }
+
+  Future<T> _runWithFirestoreRetry<T>(Future<T> Function() operation) async {
+    const delays = [
+      Duration(milliseconds: 300),
+      Duration(milliseconds: 900),
+      Duration(seconds: 2),
+    ];
+
+    for (var attempt = 0; attempt <= delays.length; attempt++) {
+      try {
+        return await operation();
+      } on FirebaseException catch (e) {
+        final retryable = e.code == 'unavailable' ||
+            e.code == 'deadline-exceeded' ||
+            e.code == 'aborted';
+        if (!retryable || attempt == delays.length) rethrow;
+        await Future.delayed(delays[attempt]);
+      }
+    }
+
+    return operation();
   }
 
   /// Returns a real-time stream of the user profile document.
@@ -157,6 +250,27 @@ class AuthRepository {
     required Map<String, dynamic> data,
   }) async {
     await _firestore.collection('users').doc(uid).update(data);
+  }
+
+  /// Updates a patient's health vitals in their Firestore document.
+  Future<void> updatePatientVitals({
+    required String uid,
+    required String bloodPressure,
+    required String weight,
+    required String height,
+    required String bloodGroup,
+    required String pulse,
+    required String temperature,
+  }) async {
+    // Write health metric strings directly to the user document in Firestore.
+    await _firestore.collection('users').doc(uid).update({
+      'bloodPressure': bloodPressure,
+      'weight': weight,
+      'height': height,
+      'bloodGroup': bloodGroup,
+      'pulse': pulse,
+      'temperature': temperature,
+    });
   }
 }
 

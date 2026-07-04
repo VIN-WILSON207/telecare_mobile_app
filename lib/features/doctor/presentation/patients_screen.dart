@@ -23,20 +23,23 @@ class PatientsScreen extends ConsumerWidget {
 
     final user = authState.user;
 
-    return Scaffold(
-      backgroundColor: AppTheme.neutralBackground,
-      appBar: TeleCareTabAppBar(title: 'My Patients', user: user),
-      body: user.role == UserRole.doctor
-          ? DoctorPatientsView(user: user)
-          : const Center(
-              child: Text(
-                'Access restricted to certified medical practitioners.',
-                style: TextStyle(color: AppTheme.neutralMedium),
+    return TeleCareHomeBackScope(
+      currentPath: '/patients',
+      child: Scaffold(
+        backgroundColor: AppTheme.neutralBackground,
+        appBar: TeleCareTabAppBar(title: 'My Patients', user: user),
+        body: user.role == UserRole.doctor
+            ? DoctorPatientsView(user: user)
+            : const Center(
+                child: Text(
+                  'Access restricted to certified medical practitioners.',
+                  style: TextStyle(color: AppTheme.neutralMedium),
+                ),
               ),
-            ),
-      bottomNavigationBar: user.role == UserRole.doctor
-          ? const DoctorBottomNavBar(currentPath: '/patients')
-          : const PatientBottomNavBar(currentPath: '/patients'),
+        bottomNavigationBar: user.role == UserRole.doctor
+            ? const DoctorBottomNavBar(currentPath: '/patients')
+            : const PatientBottomNavBar(currentPath: '/patients'),
+      ),
     );
   }
 }

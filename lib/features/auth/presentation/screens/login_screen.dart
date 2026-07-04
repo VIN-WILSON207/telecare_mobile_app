@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_providers.dart';
 import '../../providers/auth_state.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../admin/dashboard/admin_dashboard_screen.dart';
+import '../../../home/presentation/home_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -45,7 +47,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authNotifierProvider.notifier).login(
+    await ref
+        .read(authNotifierProvider.notifier)
+        .login(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
@@ -59,17 +63,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next is AuthAuthenticated) {
-        // Check if doctor needs verification
         final user = next.user;
-        if (user.role.value == 'doctor' &&
-            user.verificationStatus.toLowerCase() != 'approved') {
-          context.go('/verification-status');
+        // Check if the user's email matches the hardcoded admin email.
+        if (user.email.trim().toLowerCase() == 'abilavinwilson@gmail.com') {
+          // Immediately route the admin to the Admin Dashboard screen.
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+          );
         } else {
-          context.go('/home');
+          // Route any other user to the standard Home screen.
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
         }
-      } else if (next is AuthOtpSent) {
-        context.push('/phone-otp',
-            extra: {'verificationId': next.verificationId, 'phone': next.phone});
       } else if (next is AuthError) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
@@ -77,7 +85,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(next.message)),
                 ],
@@ -170,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               text: const TextSpan(
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
-                                  fontSize: 30,
+                                  fontSize: 34,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.5,
                                 ),
@@ -191,7 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               'Your Health, Anywhere',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
-                                fontSize: 13,
+                                fontSize: 16,
                                 color: Colors.white.withValues(alpha: 0.72),
                                 letterSpacing: 0.3,
                               ),
@@ -223,17 +235,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         children: [
                           Text(
                             'Welcome Back',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
+                            style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Sign in to continue to your account',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: AppTheme.neutralMedium),
                           ),
                           const SizedBox(height: 28),
@@ -248,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             style: const TextStyle(
                               color: Colors.black87,
                               fontFamily: 'Poppins',
-                              fontSize: 14,
+                              fontSize: 17,
                             ),
                             decoration: const InputDecoration(
                               hintText: 'you@example.com',
@@ -258,8 +266,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               if (value == null || value.trim().isEmpty) {
                                 return 'Email is required';
                               }
-                              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                  .hasMatch(value)) {
+                              if (!RegExp(
+                                r'^[^@]+@[^@]+\.[^@]+',
+                              ).hasMatch(value)) {
                                 return 'Enter a valid email';
                               }
                               return null;
@@ -284,7 +293,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 ),
                                 child: const Text(
                                   'Forgot Password?',
-                                  style: TextStyle(fontSize: 13),
+                                  style: TextStyle(fontSize: 16),
                                 ),
                               ),
                             ],
@@ -297,7 +306,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             style: const TextStyle(
                               color: Colors.black87,
                               fontFamily: 'Poppins',
-                              fontSize: 14,
+                              fontSize: 17,
                             ),
                             decoration: InputDecoration(
                               hintText: '••••••••',
@@ -310,7 +319,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   color: AppTheme.neutralLight,
                                 ),
                                 onPressed: () => setState(
-                                    () => _obscurePassword = !_obscurePassword),
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
                               ),
                             ),
                             validator: (value) {
@@ -335,13 +345,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             children: [
                               const Expanded(child: Divider()),
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 child: Text(
                                   'New to TeleCare?',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: AppTheme.neutralLight),
                                 ),
                               ),
@@ -374,9 +383,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: AppTheme.neutralDark,
-            fontWeight: FontWeight.w600,
-          ),
+        color: AppTheme.neutralDark,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -397,7 +406,7 @@ class _GradientButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      height: 54,
+      height: 58,
       decoration: BoxDecoration(
         gradient: isLoading
             ? null
@@ -441,7 +450,7 @@ class _GradientButton extends StatelessWidget {
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,
                 ),

@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:firebase_auth/firebase_auth.dart'
-    show FirebaseAuthException;
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuthException;
 
 import 'package:flutter/widgets.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show FieldValue;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_role.dart';
+import '../data/models/user_model.dart';
 import '../data/repositories/auth_repository.dart';
+import '../../../core/services/service_providers.dart';
+import '../../admin/dev_admin_access.dart';
 import 'auth_providers.dart';
 import 'auth_state.dart';
 
@@ -14,6 +17,7 @@ import 'auth_state.dart';
 class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
   static const _lastActivityKey = 'last_activity_timestamp';
   static const _isFirstInstallKey = 'is_first_install';
+  static const _operationTimeout = Duration(seconds: 25);
 
   @override
   AuthState build() {
@@ -48,7 +52,8 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
       final isFirstInstall = prefs.getBool(_isFirstInstallKey) ?? true;
       if (isFirstInstall) {
         debugPrint('[AuthNotifier] First Install logic: Showing splash.');
-        state = const AuthSplash(); // Let the router know we are in splash state
+        state =
+            const AuthSplash(); // Let the router know we are in splash state
         return;
       }
 
@@ -62,12 +67,13 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
       // 3. Regular Firebase Auth Check
       final firebaseUser = _repository.currentUser;
       if (firebaseUser != null) {
-        debugPrint('[AuthNotifier] User ${firebaseUser.uid} found. Fetching profile...');
-        final profile = await _repository.getUserProfile(firebaseUser.uid).timeout(
-          const Duration(seconds: 4),
-          onTimeout: () => null,
+        debugPrint(
+          '[AuthNotifier] User ${firebaseUser.uid} found. Fetching profile...',
         );
-        
+        final profile = await _repository
+            .getUserProfile(firebaseUser.uid)
+            .timeout(const Duration(seconds: 4), onTimeout: () => null);
+
         if (profile != null) {
           debugPrint('[AuthNotifier] Profile loaded. Authenticated.');
           state = AuthAuthenticated(profile);
@@ -75,7 +81,7 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
           return;
         }
       }
-      
+
       debugPrint('[AuthNotifier] No session/user. Unauthenticated.');
       state = const AuthUnauthenticated();
     } catch (e) {
@@ -89,13 +95,15 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       final lastActivityStr = prefs.getString(_lastActivityKey);
-      
+
       if (lastActivityStr != null) {
         final lastActivity = DateTime.parse(lastActivityStr);
         final difference = DateTime.now().difference(lastActivity);
-        
+
         if (difference.inMinutes >= 30) {
-          debugPrint('[AuthNotifier] Session expired: ${difference.inMinutes} mins.');
+          debugPrint(
+            '[AuthNotifier] Session expired: ${difference.inMinutes} mins.',
+          );
           await logout(); // Forces unauthenticated state
           return true;
         }
@@ -119,13 +127,57 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     // Yield to the UI so AuthLoading renders before the Firebase call starts
     await Future.delayed(Duration.zero);
     try {
-      final user = await _repository.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final user = await _repository
+          .signInWithEmailAndPassword(email: email, password: password)
+          .timeout(_operationTimeout);
+
+      // Check if user is active
+      if (!user.isActive) {
+        await _repository.signOut();
+        state = const AuthError(
+          'This account has been deactivated. Please contact support.',
+        );
+        return;
+      }
+
+      // Create Audit Log for Login
+      try {
+        final auditRef = ref
+            .read(firestoreProvider)
+            .collection('audit_logs')
+            .doc();
+        await auditRef.set({
+          'id': auditRef.id,
+          'action': 'login',
+          'userId': user.uid,
+          'userName': user.fullName,
+          'details': 'User logged in successfully',
+          'timestamp': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 8));
+      } catch (auditError) {
+        debugPrint(
+          '[AuthNotifier] Failed to write login audit log: $auditError',
+        );
+      }
+
       await updateActivity();
       state = AuthAuthenticated(user);
+
+      // Task 17 — register FCM token non-blocking after successful login
+      ref.read(fcmServiceProvider).registerToken(user.uid).catchError((e) {
+        debugPrint('[AuthNotifier] FCM token registration failed: $e');
+        return null;
+      });
     } on FirebaseAuthException catch (e) {
+      state = AuthError(_mapFirebaseError(e.code));
+    } on TimeoutException {
+      state = const AuthError(
+        'The request is taking too long. Please check your connection and try again.',
+      );
+    } on AuthException catch (e) {
+      if (_isFirestoreTransient(e.code) && await _authenticateDevAdminFallback()) {
+        return;
+      }
       state = AuthError(_mapFirebaseError(e.code));
     } catch (e) {
       state = AuthError(e.toString());
@@ -150,24 +202,59 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     required String password,
     required String phone,
     required UserRole role,
+    required DateTime dateOfBirth,
+    required String gender,
   }) async {
     state = const AuthLoading();
     // Yield to the UI so AuthLoading renders before the Firebase call starts
     await Future.delayed(Duration.zero);
     try {
-      final user = await _repository.registerWithEmailAndPassword(
-        fullName: fullName,
-        email: email,
-        password: password,
-        phone: phone,
-        role: role,
-      );
+      final user = await _repository
+          .registerWithEmailAndPassword(
+            fullName: fullName,
+            email: email,
+            password: password,
+            phone: phone,
+            role: role,
+            dateOfBirth: dateOfBirth,
+            gender: gender,
+          )
+          .timeout(_operationTimeout);
+
+      // Create Audit Log for Registration
+      try {
+        final auditRef = ref
+            .read(firestoreProvider)
+            .collection('audit_logs')
+            .doc();
+        await auditRef.set({
+          'id': auditRef.id,
+          'action': 'registration',
+          'userId': user.uid,
+          'userName': user.fullName,
+          'details':
+              'User registered successfully with role: ${user.role.value}',
+          'timestamp': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 8));
+      } catch (auditError) {
+        debugPrint(
+          '[AuthNotifier] Failed to write registration audit log: $auditError',
+        );
+      }
+
       await updateActivity();
-      // After registration, send phone OTP
-      state = AuthAuthenticated(user);
-      // Now initiate phone verification
-      await sendPhoneOtp(phone: phone);
+
+      // Sign out since createUserWithEmailAndPassword signs the user in on the client.
+      await _repository.signOut();
+
+      state = const AuthRegistrationSuccess();
     } on FirebaseAuthException catch (e) {
+      state = AuthError(_mapFirebaseError(e.code));
+    } on TimeoutException {
+      state = const AuthError(
+        'The request is taking too long. Please check your connection and try again.',
+      );
+    } on AuthException catch (e) {
       state = AuthError(_mapFirebaseError(e.code));
     } catch (e) {
       state = AuthError(e.toString());
@@ -180,11 +267,16 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     try {
       // Simulate network latency
       await Future.delayed(const Duration(milliseconds: 600));
-      
+
       // Generate a 6-digit random code
-      final generatedCode = List.generate(6, (_) => math.Random().nextInt(10).toString()).join();
-      debugPrint('[AuthNotifier] DEVELOPMENT ONLY: Generated Phone OTP code for $phone is: $generatedCode');
-      
+      final generatedCode = List.generate(
+        6,
+        (_) => math.Random().nextInt(10).toString(),
+      ).join();
+      debugPrint(
+        '[AuthNotifier] DEVELOPMENT ONLY: Generated Phone OTP code for $phone is: $generatedCode',
+      );
+
       // Pass the code as verificationId so we can check it in verifyPhoneOtp
       state = AuthOtpSent(verificationId: generatedCode, phone: phone);
     } catch (e) {
@@ -201,7 +293,7 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     try {
       // Simulate network verification latency
       await Future.delayed(const Duration(milliseconds: 600));
-      
+
       if (smsCode == verificationId) {
         final auth = ref.read(firebaseAuthProvider);
         final uid = auth.currentUser?.uid;
@@ -226,10 +318,37 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
       await prefs.remove(_lastActivityKey);
-      await _repository.signOut().catchError((_){});
+      await _repository.signOut().catchError((_) {});
     } finally {
       state = const AuthUnauthenticated();
     }
+  }
+
+  Future<bool> _authenticateDevAdminFallback() async {
+    final firebaseUser = _repository.currentUser;
+    if (!isDevAdminEmail(firebaseUser?.email)) return false;
+
+    await updateActivity();
+    state = AuthAuthenticated(
+      UserModel(
+        uid: firebaseUser!.uid,
+        fullName: 'TeleCare Admin',
+        email: firebaseUser.email ?? devAdminEmail,
+        phone: '',
+        role: UserRole.admin,
+        verificationStatus: 'approved',
+        createdAt: DateTime.now(),
+        isActive: true,
+      ),
+    );
+    return true;
+  }
+
+  bool _isFirestoreTransient(String code) {
+    return code == 'firestore-unavailable' ||
+        code == 'firestore-deadline-exceeded' ||
+        code == 'firestore-aborted' ||
+        code == 'firestore-unknown';
   }
 
   /// Marks the first-install splash as complete and moves to unauthenticated.
@@ -268,6 +387,22 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
         return 'Invalid credentials. Please check your email and password.';
       case 'profile-not-found':
         return 'User profile not found. Please contact support.';
+      case 'firestore-unavailable':
+        return 'Firestore is temporarily unavailable. Please retry in a moment.';
+      case 'firestore-deadline-exceeded':
+      case 'firestore-aborted':
+      case 'firestore-unknown':
+        return 'Firestore could not be reached reliably. Please check your connection and retry.';
+      case 'firestore-permission-denied':
+        return 'Firestore blocked this action. Check that your /users/{uid} rule allows the signed-in user to write their own profile.';
+      case 'auth-state-not-ready':
+        return 'Firebase is still activating your account. Please retry registration.';
+      case 'missing-id-token':
+        return 'Firebase Auth created the session but did not finish issuing an ID token. Please retry.';
+      case 'timeout':
+        return 'The request is taking too long. Please check your connection and try again.';
+      case 'firestore-write-error':
+        return 'Your account was created, but TeleCare could not save your profile. Check Firestore rules/network and try again.';
       case 'invalid-phone-number':
         return 'The phone number is invalid. Include country code (e.g. +237).';
       case 'invalid-verification-code':

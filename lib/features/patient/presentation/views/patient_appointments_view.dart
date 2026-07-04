@@ -3,22 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
+import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/service_providers.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class PatientAppointmentsView extends ConsumerStatefulWidget {
   final UserModel user;
 
-  const PatientAppointmentsView({
-    super.key,
-    required this.user,
-  });
+  const PatientAppointmentsView({super.key, required this.user});
 
   @override
-  ConsumerState<PatientAppointmentsView> createState() => _PatientAppointmentsViewState();
+  ConsumerState<PatientAppointmentsView> createState() =>
+      _PatientAppointmentsViewState();
 }
 
-class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsView> with SingleTickerProviderStateMixin {
+class _PatientAppointmentsViewState
+    extends ConsumerState<PatientAppointmentsView>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _doctorSearchController = TextEditingController();
+  String? _selectedSpecialty;
 
   @override
   void initState() {
@@ -29,12 +33,15 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
   @override
   void dispose() {
     _tabController.dispose();
+    _doctorSearchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final appointmentsAsync = ref.watch(patientAppointmentsProvider(widget.user.uid));
+    final appointmentsAsync = ref.watch(
+      patientAppointmentsProvider(widget.user.uid),
+    );
     final doctorsAsync = ref.watch(verifiedDoctorsProvider);
 
     return Scaffold(
@@ -50,7 +57,10 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
             indicatorColor: AppTheme.primaryColor,
             indicatorSize: TabBarIndicatorSize.tab,
             indicatorWeight: 3,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
             tabs: const [
               Tab(text: 'Book Doctor'),
               Tab(text: 'Pending'),
@@ -75,12 +85,19 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                 children: [
                   const Text(
                     'Available Healthcare Providers',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.neutralDark),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.neutralDark,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Select a verified physician to request an online consultation',
-                    style: TextStyle(fontSize: 12, color: AppTheme.neutralLight),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.neutralLight,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   doctorsAsync.when(
@@ -91,20 +108,82 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                           message: 'No verified doctors available yet.',
                         );
                       }
+                      final filteredDoctors = _filterDoctors(doctors);
+                      final specialties =
+                          doctors
+                              .map((doctor) => doctor.specialty?.trim() ?? '')
+                              .where((specialty) => specialty.isNotEmpty)
+                              .toSet()
+                              .toList()
+                            ..sort();
                       return Column(
-                        children: doctors
-                            .map((doctor) => _PatientDoctorCard(
-                                  doctor: doctor,
-                                  patient: widget.user,
-                                  ref: ref,
-                                ))
-                            .toList(),
+                        children: [
+                          TextField(
+                            controller: _doctorSearchController,
+                            onChanged: (_) => setState(() {}),
+                            textInputAction: TextInputAction.search,
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 17,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText:
+                                  'Search by doctor, specialty, or hospital',
+                              prefixIcon: Icon(Icons.search_rounded),
+                            ),
+                          ),
+                          if (specialties.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 42,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: specialties.length + 1,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 8),
+                                itemBuilder: (context, index) {
+                                  final isAll = index == 0;
+                                  final value = isAll
+                                      ? null
+                                      : specialties[index - 1];
+                                  final selected =
+                                      isAll && _selectedSpecialty == null ||
+                                      value == _selectedSpecialty;
+                                  return ChoiceChip(
+                                    label: Text(isAll ? 'All' : value!),
+                                    selected: selected,
+                                    onSelected: (_) => setState(
+                                      () => _selectedSpecialty = value,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          if (filteredDoctors.isEmpty)
+                            const _EmptyState(
+                              icon: Icons.manage_search_rounded,
+                              message:
+                                  'No doctors match this search or filter.',
+                            )
+                          else
+                            ...filteredDoctors.map(
+                              (doctor) => _PatientDoctorCard(
+                                doctor: doctor,
+                                patient: widget.user,
+                                ref: ref,
+                              ),
+                            ),
+                        ],
                       );
                     },
-                    loading: () => const Center(child: Padding(
-                      padding: EdgeInsets.all(24.0),
-                      child: CircularProgressIndicator(),
-                    )),
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
                     error: (error, _) => _ErrorCard(message: error.toString()),
                   ),
                 ],
@@ -115,7 +194,8 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
           // Tab 2: Pending appointments
           RefreshIndicator(
             color: AppTheme.primaryColor,
-            onRefresh: () async => ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
+            onRefresh: () async =>
+                ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
             child: appointmentsAsync.when(
               data: (list) {
                 final pendingList = list
@@ -126,10 +206,14 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                   return const SingleChildScrollView(
                     physics: AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                      padding: EdgeInsets.symmetric(
+                        vertical: 80,
+                        horizontal: 24,
+                      ),
                       child: _EmptyState(
                         icon: Icons.hourglass_top_rounded,
-                        message: 'No pending appointment requests.\nTap "Book Doctor" to request a slot.',
+                        message:
+                            'No pending appointment requests.\nTap "Book Doctor" to request a slot.',
                       ),
                     ),
                   );
@@ -141,7 +225,9 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                   itemCount: pendingList.length,
                   itemBuilder: (context, idx) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _PatientAppointmentCard(appointment: pendingList[idx]),
+                    child: _PatientAppointmentCard(
+                      appointment: pendingList[idx],
+                    ),
                   ),
                 );
               },
@@ -156,7 +242,8 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
           // Tab 3: Approved appointments
           RefreshIndicator(
             color: AppTheme.primaryColor,
-            onRefresh: () async => ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
+            onRefresh: () async =>
+                ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
             child: appointmentsAsync.when(
               data: (list) {
                 final approvedList = list
@@ -167,7 +254,10 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                   return const SingleChildScrollView(
                     physics: AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                      padding: EdgeInsets.symmetric(
+                        vertical: 80,
+                        horizontal: 24,
+                      ),
                       child: _EmptyState(
                         icon: Icons.event_available_rounded,
                         message: 'No approved appointments yet.',
@@ -182,7 +272,9 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                   itemCount: approvedList.length,
                   itemBuilder: (context, idx) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _PatientAppointmentCard(appointment: approvedList[idx]),
+                    child: _PatientAppointmentCard(
+                      appointment: approvedList[idx],
+                    ),
                   ),
                 );
               },
@@ -197,18 +289,26 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
           // Tab 4: Consultation history (Completed & Rejected)
           RefreshIndicator(
             color: AppTheme.primaryColor,
-            onRefresh: () async => ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
+            onRefresh: () async =>
+                ref.invalidate(patientAppointmentsProvider(widget.user.uid)),
             child: appointmentsAsync.when(
               data: (list) {
                 final historyList = list
-                    .where((a) => a.status.toLowerCase() == 'completed' || a.status.toLowerCase() == 'rejected')
+                    .where(
+                      (a) =>
+                          a.status.toLowerCase() == 'completed' ||
+                          a.status.toLowerCase() == 'rejected',
+                    )
                     .toList();
 
                 if (historyList.isEmpty) {
                   return const SingleChildScrollView(
                     physics: AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                      padding: EdgeInsets.symmetric(
+                        vertical: 80,
+                        horizontal: 24,
+                      ),
                       child: _EmptyState(
                         icon: Icons.history_rounded,
                         message: 'No past appointment history found.',
@@ -223,7 +323,9 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
                   itemCount: historyList.length,
                   itemBuilder: (context, idx) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _PatientAppointmentCard(appointment: historyList[idx]),
+                    child: _PatientAppointmentCard(
+                      appointment: historyList[idx],
+                    ),
                   ),
                 );
               },
@@ -237,6 +339,22 @@ class _PatientAppointmentsViewState extends ConsumerState<PatientAppointmentsVie
         ],
       ),
     );
+  }
+
+  List<UserModel> _filterDoctors(List<UserModel> doctors) {
+    final query = _doctorSearchController.text.trim().toLowerCase();
+    return doctors.where((doctor) {
+      final specialty = doctor.specialty?.trim() ?? '';
+      final matchesSpecialty =
+          _selectedSpecialty == null || specialty == _selectedSpecialty;
+      final searchable = [
+        doctor.fullName,
+        doctor.email,
+        specialty,
+        doctor.hospital ?? '',
+      ].join(' ').toLowerCase();
+      return matchesSpecialty && (query.isEmpty || searchable.contains(query));
+    }).toList();
   }
 }
 
@@ -268,11 +386,16 @@ class _PatientDoctorCard extends StatelessWidget {
           CircleAvatar(
             radius: 26,
             backgroundColor: AppTheme.primarySurface,
-            backgroundImage: doctor.profileImage != null && doctor.profileImage!.isNotEmpty
+            backgroundImage:
+                doctor.profileImage != null && doctor.profileImage!.isNotEmpty
                 ? NetworkImage(doctor.profileImage!)
                 : null,
             child: doctor.profileImage == null || doctor.profileImage!.isEmpty
-                ? const Icon(Icons.person, color: AppTheme.primaryColor, size: 26)
+                ? const Icon(
+                    Icons.person,
+                    color: AppTheme.primaryColor,
+                    size: 26,
+                  )
                 : null,
           ),
           const SizedBox(width: 12),
@@ -283,14 +406,18 @@ class _PatientDoctorCard extends StatelessWidget {
                 Text(
                   'Dr. ${doctor.fullName}',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.neutralDark,
-                      ),
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.neutralDark,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: const [
-                    Icon(Icons.verified_rounded, color: AppTheme.primaryColor, size: 13),
+                    Icon(
+                      Icons.verified_rounded,
+                      color: AppTheme.primaryColor,
+                      size: 13,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Verified Doctor',
@@ -323,7 +450,10 @@ class _PatientDoctorCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Book', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Book',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -347,12 +477,18 @@ class _PatientDoctorCard extends StatelessWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Book with Dr. ${doctor.fullName}',
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            Text(
+              'Book with Dr. ${doctor.fullName}',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 4),
             const Text(
               'Describe your reason for the visit',
-              style: TextStyle(fontSize: 13, color: AppTheme.neutralMedium, fontWeight: FontWeight.w400),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.neutralMedium,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -373,7 +509,8 @@ class _PatientDoctorCard extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(reasonController.text.trim()),
+            onPressed: () =>
+                Navigator.of(ctx).pop(reasonController.text.trim()),
             child: const Text('Continue'),
           ),
         ],
@@ -389,7 +526,9 @@ class _PatientDoctorCard extends StatelessWidget {
       lastDate: DateTime.now().add(const Duration(days: 90)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(primary: AppTheme.primaryColor),
+          colorScheme: Theme.of(
+            context,
+          ).colorScheme.copyWith(primary: AppTheme.primaryColor),
         ),
         child: child!,
       ),
@@ -398,17 +537,27 @@ class _PatientDoctorCard extends StatelessWidget {
 
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1))),
+      initialTime: TimeOfDay.fromDateTime(
+        DateTime.now().add(const Duration(hours: 1)),
+      ),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(primary: AppTheme.primaryColor),
+          colorScheme: Theme.of(
+            context,
+          ).colorScheme.copyWith(primary: AppTheme.primaryColor),
         ),
         child: child!,
       ),
     );
     if (time == null || !context.mounted) return;
 
-    final appointmentDate = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final appointmentDate = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
 
     final repository = ref.read(appointmentRepositoryProvider);
     await repository.createAppointment(
@@ -418,10 +567,27 @@ class _PatientDoctorCard extends StatelessWidget {
       doctorName: doctor.fullName,
       patientEmail: patient.email,
       doctorEmail: doctor.email,
-      reason: reason.isEmpty ? 'Requested consultation with Dr. ${doctor.fullName}' : reason,
+      reason: reason.isEmpty
+          ? 'Requested consultation with Dr. ${doctor.fullName}'
+          : reason,
       appointmentDate: appointmentDate,
       notes: 'Requested from TeleCare mobile app.',
     );
+
+    // Task 19 — notify doctor of the new appointment request (non-blocking)
+    try {
+      final notificationSvc = ref.read(notificationServiceProvider);
+      final payload = NotificationService.buildAppointmentRequestPayload(
+        patientName: patient.fullName.isNotEmpty ? patient.fullName : 'A patient',
+        appointmentDate: _formatAppointmentDate(appointmentDate),
+      );
+      notificationSvc.sendNotification(
+        targetUserId: doctor.uid,
+        title: payload['title'] as String,
+        body: payload['body'] as String,
+        data: Map<String, String>.from(payload['data'] as Map),
+      ).catchError((_) {}); // fire-and-forget
+    } catch (_) {}
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -433,10 +599,29 @@ class _PatientDoctorCard extends StatelessWidget {
       );
     }
   }
+
+  static String _formatAppointmentDate(DateTime d) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
 }
 
 // ── Patient Appointment Card ──────────────────────────────────────────────────
 class _PatientAppointmentCard extends StatelessWidget {
+
   final AppointmentModel appointment;
 
   const _PatientAppointmentCard({required this.appointment});
@@ -479,9 +664,9 @@ class _PatientAppointmentCard extends StatelessWidget {
                     Text(
                       'Dr. ${appointment.doctorName}',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.neutralDark,
-                          ),
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.neutralDark,
+                      ),
                     ),
                     Text(
                       appointment.reason,
@@ -511,7 +696,11 @@ class _PatientAppointmentCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.neutralLight),
+              const Icon(
+                Icons.calendar_today_outlined,
+                size: 14,
+                color: AppTheme.neutralLight,
+              ),
               const SizedBox(width: 6),
               Text(
                 _formatDate(appointment.appointmentDate),
@@ -527,18 +716,43 @@ class _PatientAppointmentCard extends StatelessWidget {
   static (String, Color, Color) _statusInfo(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
-        return ('Approved', AppTheme.statusApprovedText, AppTheme.statusApproved);
+        return (
+          'Approved',
+          AppTheme.statusApprovedText,
+          AppTheme.statusApproved,
+        );
       case 'rejected':
-        return ('Rejected', AppTheme.statusRejectedText, AppTheme.statusRejected);
+        return (
+          'Rejected',
+          AppTheme.statusRejectedText,
+          AppTheme.statusRejected,
+        );
       case 'completed':
-        return ('Completed', AppTheme.statusCompletedText, AppTheme.statusCompleted);
+        return (
+          'Completed',
+          AppTheme.statusCompletedText,
+          AppTheme.statusCompleted,
+        );
       default:
         return ('Pending', AppTheme.statusPendingText, AppTheme.statusPending);
     }
   }
 
   static String _formatDate(DateTime d) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     final h = d.hour.toString().padLeft(2, '0');
     final m = d.minute.toString().padLeft(2, '0');
     return '${d.day} ${months[d.month - 1]} ${d.year} at $h:$m';
@@ -566,7 +780,11 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(icon, size: 48, color: AppTheme.neutralLight),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ],
       ),
     );
@@ -590,7 +808,10 @@ class _ErrorCard extends StatelessWidget {
           const Icon(Icons.error_outline, color: AppTheme.statusRejectedText),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(message, style: const TextStyle(color: AppTheme.statusRejectedText)),
+            child: Text(
+              message,
+              style: const TextStyle(color: AppTheme.statusRejectedText),
+            ),
           ),
         ],
       ),

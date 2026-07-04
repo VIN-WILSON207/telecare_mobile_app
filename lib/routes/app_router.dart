@@ -4,11 +4,15 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/auth/presentation/screens/forgot_password_screen.dart';
-import '../features/auth/presentation/screens/phone_otp_screen.dart';
+
 import '../features/auth/providers/auth_providers.dart';
 import '../features/auth/providers/auth_state.dart';
+import '../features/auth/data/models/user_role.dart';
+import '../features/admin/dashboard/admin_shell_screen.dart';
+import '../features/admin/dev_admin_access.dart';
 import '../features/appointments/presentation/appointments_screen.dart';
 import '../features/consultation/presentation/consultations_screen.dart';
+import '../features/consultation/presentation/screens/consultation_screen.dart';
 import '../features/doctor/presentation/patients_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/home/presentation/profile_screen.dart';
@@ -97,18 +101,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // If authState is AuthOtpSent, force navigate to /phone-otp
-      if (authState is AuthOtpSent) {
-        if (currentPath != '/phone-otp') {
-          return '/phone-otp';
-        }
-        return null;
-      }
+
 
       final isLoggedIn = authState is AuthAuthenticated;
 
       // Routes that don't require authentication
-      const authRoutes = ['/login', '/register', '/forgot-password', '/phone-otp'];
+      const authRoutes = ['/login', '/register', '/forgot-password'];
       final isAuthRoute = authRoutes.contains(currentPath);
       final isSplash = currentPath == '/';
 
@@ -124,20 +122,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             return '/login';
           }
         }
-        if (currentPath == '/phone-otp') {
-          return '/login';
-        }
         if (!isAuthRoute) return '/login';
         return null;
       }
 
       // 2. User is logged in
       final user = authState.user;
-      final isDoctor = user.role.value == 'doctor';
+      final isHealthcareProfessional = user.role.isHealthcareProfessional;
+      final isAdmin = user.role == UserRole.admin || isDevAdminEmail(user.email);
       final isVerified = user.verificationStatus.toLowerCase() == 'approved';
 
       // If user is authenticated and navigating to a valid app route, save it
-      const systemRoutes = ['/', '/login', '/register', '/forgot-password', '/verification-status', '/phone-otp'];
+      const systemRoutes = ['/', '/login', '/register', '/forgot-password', '/verification-status'];
       if (!systemRoutes.contains(currentPath)) {
         final prefs = ref.read(sharedPreferencesProvider);
         prefs.setString('last_route', currentPath).catchError((_) => false);
@@ -145,28 +141,37 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // If on splash or auth page, redirect to appropriate landing page
       if (isSplash || isAuthRoute) {
-        if (isDoctor && !isVerified) {
+        if (isAdmin) {
+          return '/admin';
+        }
+        if (isHealthcareProfessional && !isVerified) {
           return '/verification-status';
         }
         return '/home';
       }
 
-      // Verification routes are public to logged-in doctors
+      // Admin access control: restrict access to /admin routes to only admins
+      if (currentPath.startsWith('/admin') && !isAdmin) {
+        return '/home';
+      }
+
+      // Verification routes are public to logged-in healthcare professionals
       if (currentPath == '/verification-status' || currentPath == '/submit-verification') {
-        if (!isDoctor) return '/home'; // patients/admins don't need verification status
+        if (!isHealthcareProfessional) return '/home'; // patients/admins don't need verification status
         if (isVerified && currentPath == '/submit-verification') return '/verification-status';
         return null;
       }
 
-      // If doctor is unverified, restrict access to appointments, consultations, and home
-      const restrictedDoctorRoutes = [
+      // If a healthcare professional is unverified, restrict access to core app routes
+      const restrictedProfessionalRoutes = [
         '/home',
         '/appointments',
         '/consultations',
         '/patients',
         '/medical-records',
+        '/prescriptions',
       ];
-      if (isDoctor && !isVerified && restrictedDoctorRoutes.contains(currentPath)) {
+      if (isHealthcareProfessional && !isVerified && restrictedProfessionalRoutes.contains(currentPath)) {
         return '/verification-status';
       }
 
@@ -190,19 +195,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
-      GoRoute(
-        path: '/phone-otp',
-        name: 'phoneOtp',
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          final verificationId = extra?['verificationId'] as String? ?? '';
-          final phone = extra?['phone'] as String? ?? '';
-          return PhoneOtpScreen(
-            verificationId: verificationId,
-            phone: phone,
-          );
-        },
-      ),
+
       GoRoute(
         path: '/forgot-password',
         name: 'forgotPassword',
@@ -212,6 +205,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/admin',
+        name: 'admin',
+        builder: (context, state) => const AdminShellScreen(),
       ),
       GoRoute(
         path: '/verification-status',
@@ -253,6 +251,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ConsultationsScreen(),
       ),
       GoRoute(
+        path: '/consultation/:id',
+        name: 'consultation',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return ConsultationScreen(consultationId: id);
+        },
+      ),
+      GoRoute(
         path: '/patients',
         name: 'patients',
         builder: (context, state) => const PatientsScreen(),
@@ -261,6 +267,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/medical-records',
         name: 'medicalRecords',
         builder: (context, state) => const MedicalRecordsScreen(),
+      ),
+      GoRoute(
+        path: '/prescriptions',
+        name: 'prescriptions',
+        builder: (context, state) => const MedicalRecordsScreen(
+          initialRecordsTab: 1,
+        ),
       ),
       GoRoute(
         path: '/profile',
