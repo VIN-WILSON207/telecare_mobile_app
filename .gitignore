@@ -33,6 +33,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+TODO.md
 
 # Symbolication related
 app.*.symbols
@@ -47,3 +48,5 @@ app.*.map.json
 
 .env
 .env.*
+
+.kiro/

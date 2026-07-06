@@ -2,13 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 
+class TeleCareHomeBackScope extends StatelessWidget {
+  const TeleCareHomeBackScope({
+    super.key,
+    required this.currentPath,
+    required this.child,
+  });
+
+  final String currentPath;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final isHome = currentPath == '/home';
+    return PopScope(
+      canPop: isHome,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && !isHome) {
+          context.go('/home');
+        }
+      },
+      child: child,
+    );
+  }
+}
+
 class PatientBottomNavBar extends StatelessWidget {
   final String currentPath;
 
-  const PatientBottomNavBar({
-    super.key,
-    required this.currentPath,
-  });
+  const PatientBottomNavBar({super.key, required this.currentPath});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +44,7 @@ class PatientBottomNavBar extends StatelessWidget {
       _BottomTabItem(
         icon: Icons.calendar_today_rounded,
         activeIcon: Icons.calendar_month_rounded,
-        label: 'Appointments',
+        label: 'Bookings',
         route: '/appointments',
       ),
       _BottomTabItem(
@@ -39,20 +61,14 @@ class PatientBottomNavBar extends StatelessWidget {
       ),
     ];
 
-    return _CommonBottomNavBar(
-      currentPath: currentPath,
-      tabs: tabs,
-    );
+    return _CommonBottomNavBar(currentPath: currentPath, tabs: tabs);
   }
 }
 
 class DoctorBottomNavBar extends StatelessWidget {
   final String currentPath;
 
-  const DoctorBottomNavBar({
-    super.key,
-    required this.currentPath,
-  });
+  const DoctorBottomNavBar({super.key, required this.currentPath});
 
   @override
   Widget build(BuildContext context) {
@@ -60,20 +76,14 @@ class DoctorBottomNavBar extends StatelessWidget {
       _BottomTabItem(
         icon: Icons.dashboard_outlined,
         activeIcon: Icons.dashboard_rounded,
-        label: 'Dashboard',
+        label: 'Home',
         route: '/home',
       ),
       _BottomTabItem(
         icon: Icons.calendar_today_rounded,
         activeIcon: Icons.calendar_month_rounded,
-        label: 'Appointments',
+        label: 'Schedule',
         route: '/appointments',
-      ),
-      _BottomTabItem(
-        icon: Icons.video_call_outlined,
-        activeIcon: Icons.video_call_rounded,
-        label: 'Consultations',
-        route: '/consultations',
       ),
       _BottomTabItem(
         icon: Icons.people_outline_rounded,
@@ -81,12 +91,15 @@ class DoctorBottomNavBar extends StatelessWidget {
         label: 'Patients',
         route: '/patients',
       ),
+      _BottomTabItem(
+        icon: Icons.chat_bubble_outline_rounded,
+        activeIcon: Icons.chat_bubble_rounded,
+        label: 'Messages',
+        route: '/messages',
+      ),
     ];
 
-    return _CommonBottomNavBar(
-      currentPath: currentPath,
-      tabs: tabs,
-    );
+    return _CommonBottomNavBar(currentPath: currentPath, tabs: tabs);
   }
 }
 
@@ -108,10 +121,7 @@ class _CommonBottomNavBar extends StatelessWidget {
   final String currentPath;
   final List<_BottomTabItem> tabs;
 
-  const _CommonBottomNavBar({
-    required this.currentPath,
-    required this.tabs,
-  });
+  const _CommonBottomNavBar({required this.currentPath, required this.tabs});
 
   @override
   Widget build(BuildContext context) {
@@ -141,9 +151,7 @@ class _CommonBottomNavBar extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: isSelected
-                        ? null
-                        : () => context.go(tab.route),
+                    onTap: isSelected ? null : () => context.go(tab.route),
                     borderRadius: BorderRadius.circular(16),
                     splashColor: AppTheme.primaryColor.withValues(alpha: 0.05),
                     highlightColor: Colors.transparent,
@@ -157,14 +165,16 @@ class _CommonBottomNavBar extends StatelessWidget {
                             color: isSelected
                                 ? AppTheme.primaryColor
                                 : AppTheme.neutralLight,
-                            size: 24,
+                            size: 28,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             tab.label,
                             style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              fontSize: 13,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
                               color: isSelected
                                   ? AppTheme.primaryColor
                                   : AppTheme.neutralLight,

@@ -17,6 +17,12 @@ class VerificationRequestModel {
   final String? reviewedBy;
   final String? rejectionReason;
 
+  final String specialty;
+  final String licenseNumber;
+  final String hospital;
+  final String prefix;
+  final String hpType;
+
   const VerificationRequestModel({
     required this.id,
     required this.doctorId,
@@ -28,6 +34,11 @@ class VerificationRequestModel {
     this.reviewedAt,
     this.reviewedBy,
     this.rejectionReason,
+    this.specialty = '',
+    this.licenseNumber = '',
+    this.hospital = '',
+    this.prefix = '',
+    this.hpType = '',
   });
 
   // ---------------------------------------------------------------------------
@@ -45,6 +56,11 @@ class VerificationRequestModel {
     DateTime? reviewedAt,
     String? reviewedBy,
     String? rejectionReason,
+    String? specialty,
+    String? licenseNumber,
+    String? hospital,
+    String? prefix,
+    String? hpType,
   }) {
     return VerificationRequestModel(
       id: id ?? this.id,
@@ -57,6 +73,11 @@ class VerificationRequestModel {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       rejectionReason: rejectionReason ?? this.rejectionReason,
+      specialty: specialty ?? this.specialty,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      hospital: hospital ?? this.hospital,
+      prefix: prefix ?? this.prefix,
+      hpType: hpType ?? this.hpType,
     );
   }
 
@@ -76,6 +97,11 @@ class VerificationRequestModel {
       'reviewedAt': reviewedAt != null ? Timestamp.fromDate(reviewedAt!) : null,
       'reviewedBy': reviewedBy,
       'rejectionReason': rejectionReason,
+      'specialty': specialty,
+      'licenseNumber': licenseNumber,
+      'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
     };
   }
 
@@ -96,6 +122,11 @@ class VerificationRequestModel {
       reviewedAt: map['reviewedAt'] != null ? _parseDateTime(map['reviewedAt']) : null,
       reviewedBy: map['reviewedBy'] as String?,
       rejectionReason: map['rejectionReason'] as String?,
+      specialty: map['specialty'] as String? ?? '',
+      licenseNumber: map['licenseNumber'] as String? ?? '',
+      hospital: map['hospital'] as String? ?? '',
+      prefix: map['prefix'] as String? ?? '',
+      hpType: map['hpType'] as String? ?? '',
     );
   }
 
@@ -120,6 +151,11 @@ class VerificationRequestModel {
       'reviewedAt': reviewedAt?.toIso8601String(),
       'reviewedBy': reviewedBy,
       'rejectionReason': rejectionReason,
+      'specialty': specialty,
+      'licenseNumber': licenseNumber,
+      'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
     };
   }
 
@@ -135,6 +171,11 @@ class VerificationRequestModel {
       reviewedAt: map['reviewedAt'] != null ? DateTime.parse(map['reviewedAt'] as String) : null,
       reviewedBy: map['reviewedBy'] as String?,
       rejectionReason: map['rejectionReason'] as String?,
+      specialty: map['specialty'] as String? ?? '',
+      licenseNumber: map['licenseNumber'] as String? ?? '',
+      hospital: map['hospital'] as String? ?? '',
+      prefix: map['prefix'] as String? ?? '',
+      hpType: map['hpType'] as String? ?? '',
     );
   }
 
@@ -153,7 +194,8 @@ class VerificationRequestModel {
     return 'VerificationRequestModel(id: $id, doctorId: $doctorId, doctorName: $doctorName, '
         'nationalIdUrl: $nationalIdUrl, licenseUrl: $licenseUrl, status: $status, '
         'submittedAt: $submittedAt, reviewedAt: $reviewedAt, reviewedBy: $reviewedBy, '
-        'rejectionReason: $rejectionReason)';
+        'rejectionReason: $rejectionReason, specialty: $specialty, '
+        'licenseNumber: $licenseNumber, hospital: $hospital, prefix: $prefix, hpType: $hpType)';
   }
 
   @override
@@ -169,7 +211,12 @@ class VerificationRequestModel {
         other.submittedAt == submittedAt &&
         other.reviewedAt == reviewedAt &&
         other.reviewedBy == reviewedBy &&
-        other.rejectionReason == rejectionReason;
+        other.rejectionReason == rejectionReason &&
+        other.specialty == specialty &&
+        other.licenseNumber == licenseNumber &&
+        other.hospital == hospital &&
+        other.prefix == prefix &&
+        other.hpType == hpType;
   }
 
   @override
@@ -184,5 +231,10 @@ class VerificationRequestModel {
         reviewedAt,
         reviewedBy,
         rejectionReason,
+        specialty,
+        licenseNumber,
+        hospital,
+        prefix,
+        hpType,
       );
 }

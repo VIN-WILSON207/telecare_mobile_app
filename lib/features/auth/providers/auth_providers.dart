@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/models/user_model.dart';
 import 'auth_notifier.dart';
 import 'auth_state.dart';
 export '../../../core/providers/shared_preferences_provider.dart';
@@ -36,4 +37,10 @@ final authNotifierProvider =
 /// Useful for the router redirect guard.
 final authStateChangesProvider = StreamProvider<User?>((ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
+});
+
+/// Exposes user profile lookup cached by uid.
+final userProfileProvider = FutureProvider.family<UserModel?, String>((ref, uid) async {
+  final repository = ref.watch(authRepositoryProvider);
+  return repository.getUserProfile(uid);
 });

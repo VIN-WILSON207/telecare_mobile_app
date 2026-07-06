@@ -12,7 +12,13 @@ class AppointmentRepository {
   Future<List<UserModel>> getVerifiedDoctors() async {
     final snapshot = await _firestore
         .collection('users')
-        .where('role', isEqualTo: 'doctor')
+        .where('role', whereIn: [
+          'doctor',
+          'nurse',
+          'lab_technician',
+          'pharmacist',
+          'physiotherapist'
+        ])
         .where('verificationStatus', isEqualTo: 'approved')
         .get();
 
@@ -56,9 +62,13 @@ class AppointmentRepository {
         .where('patientId', isEqualTo: patientId)
         .orderBy('appointmentDate', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map(AppointmentModel.fromFirestore)
-            .toList());
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map(AppointmentModel.fromFirestore)
+          .toList();
+      _autoCompletePastAppointments(list);
+      return list;
+    });
   }
 
   Stream<List<AppointmentModel>> appointmentsForDoctor(String doctorId) {
@@ -67,9 +77,26 @@ class AppointmentRepository {
         .where('doctorId', isEqualTo: doctorId)
         .orderBy('appointmentDate', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map(AppointmentModel.fromFirestore)
-            .toList());
+        .map((snapshot) {
+      final list = snapshot.docs
+          .map(AppointmentModel.fromFirestore)
+          .toList();
+      _autoCompletePastAppointments(list);
+      return list;
+    });
+  }
+
+  void _autoCompletePastAppointments(List<AppointmentModel> list) {
+    final now = DateTime.now();
+    for (final app in list) {
+      if (app.status == 'approved' &&
+          now.difference(app.appointmentDate).inHours >= 1) {
+        updateAppointmentStatus(app.id, status: 'completed');
+      } else if (app.status == 'pending' && now.isAfter(app.appointmentDate)) {
+        updateAppointmentStatus(app.id,
+            status: 'completed', notes: 'Expired pending request');
+      }
+    }
   }
 
   Future<void> updateAppointmentStatus(

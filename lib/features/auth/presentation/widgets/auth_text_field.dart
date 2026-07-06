@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/telecare_ui.dart';
+
 /// A reusable styled text field for the auth screens.
 class AuthTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -34,7 +36,9 @@ class AuthTextField extends StatelessWidget {
       enabled: enabled,
       validator: validator,
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      decoration: InputDecoration(
+      cursorColor: TeleCareInputStyles.cursorColor,
+      style: TeleCareInputStyles.formTextStyle,
+      decoration: TeleCareInputStyles.decoration(
         labelText: label,
         hintText: hint,
         prefixIcon: prefixIcon != null ? Icon(prefixIcon) : null,

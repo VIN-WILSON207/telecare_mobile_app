@@ -57,14 +57,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
 
     _logoController.forward().then((_) {
+      debugPrint('[SplashScreen] Logo animation complete');
       Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted) _textController.forward();
+        if (mounted) {
+          debugPrint('[SplashScreen] Starting text animation');
+          _textController.forward();
+        }
       });
     });
 
     // Navigate to login after animation completes (first install only)
     _safetyTimer = Timer(const Duration(milliseconds: 2800), () async {
+      debugPrint('[SplashScreen] Safety timer triggered');
       if (mounted) {
+        debugPrint('[SplashScreen] Calling completeSplash()');
         await ref.read(authNotifierProvider.notifier).completeSplash();
       }
     });

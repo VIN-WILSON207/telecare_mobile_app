@@ -107,8 +107,6 @@ class _PhoneOtpScreenState extends ConsumerState<PhoneOtpScreen>
 
   bool get _isFilled => _controllers.every((c) => c.text.isNotEmpty);
 
-  String get _otpCode => _controllers.map((c) => c.text).join();
-
   void _onDigitInput(int index, String value) {
     // Only take the last digit if multiple chars are pasted
     final digit = value.replaceAll(RegExp(r'\D'), '');
@@ -142,26 +140,18 @@ class _PhoneOtpScreenState extends ConsumerState<PhoneOtpScreen>
     }
   }
 
+  // OTP verification disabled (system no longer performs OTP verification).
+  // Navigation after authentication is handled using role-based verification status.
   Future<void> _handleVerify() async {
-    if (!_isFilled) return;
-    await ref.read(authNotifierProvider.notifier).verifyPhoneOtp(
-          verificationId: widget.verificationId,
-          smsCode: _otpCode,
-        );
+    // Intentionally no-op.
   }
 
+
+  // OTP resend disabled (system no longer performs OTP verification).
   Future<void> _handleResend() async {
-    if (!_canResend) return;
-    // Clear all boxes
-    for (final c in _controllers) {
-      c.clear();
-    }
-    setState(() {});
-    await ref
-        .read(authNotifierProvider.notifier)
-        .sendPhoneOtp(phone: widget.phone);
-    _startCountdown();
+    // Intentionally no-op.
   }
+
 
   void _shakeBoxes() {
     _shakeController.forward(from: 0);
@@ -173,64 +163,20 @@ class _PhoneOtpScreenState extends ConsumerState<PhoneOtpScreen>
     final isLoading = authState is AuthLoading;
 
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-      if (next is AuthPhoneVerified) {
-        // Phone verified → go to home (or verification-status for doctor)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Phone number verified successfully!'),
-              ],
-            ),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
-        );
-        context.go('/home');
-      } else if (next is AuthOtpSent) {
-        // Resend triggered a new code
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('New OTP sent to ${widget.phone}'),
-            backgroundColor: AppTheme.primaryColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
-        );
-      } else if (next is AuthAuthenticated) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 18),
-                SizedBox(width: 8),
-                Text('Phone number verified successfully!'),
-              ],
-            ),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
-        );
+      // OTP flow removed: we no longer react to AuthPhoneVerified/AuthOtpSent.
+      // After auth, we route based on role verification status for ALL HP roles.
+      if (next is AuthAuthenticated) {
         final user = next.user;
-        if (user.role.value == 'doctor' &&
+        if (user.role.requiresVerification &&
             user.verificationStatus.toLowerCase() != 'approved') {
           context.go('/verification-status');
         } else {
           context.go('/home');
         }
       } else if (next is AuthError) {
+
         _shakeBoxes();
-        // Clear inputs on wrong OTP
+        // Clear inputs on wrong verification code
         for (final c in _controllers) {
           c.clear();
         }

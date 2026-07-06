@@ -3,7 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
+import '../../../consultation/data/exceptions/consultation_exceptions.dart';
+import '../../../consultation/providers/consultation_providers.dart';
+import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/service_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 
 class DoctorAppointmentsView extends ConsumerStatefulWidget {
   final UserModel user;
@@ -310,7 +316,52 @@ class _DoctorRequestCard extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    await repository.updateAppointmentStatus(
+                    final consultationRepo =
+                        ref.read(consultationRepositoryProvider);
+                    final notificationSvc =
+                        ref.read(notificationServiceProvider);
+                    final appointmentRepo =
+                        ref.read(appointmentRepositoryProvider);
+
+                    try {
+                      // Step 1: Create consultation (throws on duplicate or Firestore fail)
+                      await consultationRepo.createConsultation(appointment);
+                    } on DuplicateConsultationException {
+                      // Consultation already exists — still approve
+                    } on ConsultationCreationException {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to create consultation session. Please try again.',
+                            ),
+                          ),
+                        );
+                      }
+                      return; // Do NOT update appointment status
+                    }
+
+                    // Step 2: Notify patient
+                    try {
+                      final payload =
+                          NotificationService.buildAppointmentApprovedPayload(
+                        doctorName: appointment.doctorName,
+                        appointmentDate:
+                            _formatDate(appointment.appointmentDate),
+                      );
+                      await notificationSvc.sendNotification(
+                        targetUserId: appointment.patientId,
+                        title: payload['title'] as String,
+                        body: payload['body'] as String,
+                        data: Map<String, String>.from(
+                            payload['data'] as Map),
+                      );
+                    } catch (_) {
+                      // Notification failure is non-blocking
+                    }
+
+                    // Step 3: Update appointment status
+                    await appointmentRepo.updateAppointmentStatus(
                       appointment.id,
                       status: 'approved',
                     );
@@ -489,6 +540,25 @@ class _DoctorAppointmentCard extends StatelessWidget {
               ),
             ],
           ),
+          if (appointment.status.toLowerCase() == 'approved') ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.phone_enabled_rounded, size: 14),
+              label: const Text(
+                'Launch Consultation Call',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 36),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => launchCall(context, ref, appointment),
+            ),
+          ],
           if (canComplete) ...[
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -627,3 +697,42 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
+Future<void> launchCall(BuildContext context, WidgetRef ref, AppointmentModel appointment) async {
+  try {
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore
+        .collection('consultations')
+        .where('appointmentId', isEqualTo: appointment.id)
+        .where('doctorId', isEqualTo: appointment.doctorId)
+        .get();
+
+    String consultationId;
+    if (snapshot.docs.isNotEmpty) {
+      consultationId = snapshot.docs.first.id;
+    } else {
+      final docRef = await firestore.collection('consultations').add({
+        'appointmentId': appointment.id,
+        'doctorId': appointment.doctorId,
+        'patientId': appointment.patientId,
+        'roomId': appointment.id,
+        'status': 'scheduled',
+        'mode': 'video',
+        'startedAt': null,
+        'endedAt': null,
+        'duration': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      consultationId = docRef.id;
+    }
+
+    if (context.mounted) {
+      context.go('/consultation/$consultationId');
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch call: $e')),
+      );
+    }
+  }
+}

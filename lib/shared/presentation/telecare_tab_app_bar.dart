@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/data/models/user_model.dart';
+import 'telecare_home_chrome.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -24,7 +25,9 @@ class TeleCareTabAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U';
+    final initial = user.fullName.isNotEmpty
+        ? user.fullName[0].toUpperCase()
+        : 'U';
 
     return AppBar(
       backgroundColor: AppTheme.primaryColor,
@@ -32,7 +35,11 @@ class TeleCareTabAppBar extends StatelessWidget implements PreferredSizeWidget {
 
       leading: showBackButton
           ? IconButton(
-              icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18),
+              icon: const Icon(
+                Icons.arrow_back_ios_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
               onPressed: () {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
@@ -44,9 +51,14 @@ class TeleCareTabAppBar extends StatelessWidget implements PreferredSizeWidget {
           : null,
       title: Text(
         title,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 21,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       actions: [
+        const TeleCareNotificationButton(iconColor: Colors.white),
         if (showProfileButton)
           GestureDetector(
             onTap: () => context.go('/profile'),
@@ -55,7 +67,8 @@ class TeleCareTabAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.white.withValues(alpha: 0.2),
-                backgroundImage: user.profileImage != null && user.profileImage!.isNotEmpty
+                backgroundImage:
+                    user.profileImage != null && user.profileImage!.isNotEmpty
                     ? NetworkImage(user.profileImage!)
                     : null,
                 child: user.profileImage == null || user.profileImage!.isEmpty
@@ -64,7 +77,7 @@ class TeleCareTabAppBar extends StatelessWidget implements PreferredSizeWidget {
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 16,
                         ),
                       )
                     : null,
