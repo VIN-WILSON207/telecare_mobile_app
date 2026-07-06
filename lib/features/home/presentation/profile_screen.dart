@@ -5,6 +5,7 @@ import '../../auth/providers/auth_state.dart';
 import '../../auth/data/models/user_role.dart';
 import '../../patient/presentation/views/patient_profile_view.dart';
 import '../../doctor/presentation/views/doctor_profile_view.dart';
+import '../../../shared/presentation/bottom_nav_bar.dart';
 import '../../../shared/presentation/telecare_tab_app_bar.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -23,17 +24,20 @@ class ProfileScreen extends ConsumerWidget {
 
     final user = authState.user;
 
-    return Scaffold(
-      backgroundColor: AppTheme.neutralBackground,
-      appBar: TeleCareTabAppBar(
-        title: 'My Profile',
-        user: user,
-        showBackButton: true,
-        showProfileButton: false,
+    return TeleCareHomeBackScope(
+      currentPath: '/profile',
+      child: Scaffold(
+        backgroundColor: AppTheme.neutralBackground,
+        appBar: TeleCareTabAppBar(
+          title: 'My Profile',
+          user: user,
+          showBackButton: true,
+          showProfileButton: false,
+        ),
+        body: user.role == UserRole.doctor
+            ? DoctorProfileView(user: user)
+            : PatientProfileView(user: user),
       ),
-      body: user.role == UserRole.doctor
-          ? DoctorProfileView(user: user)
-          : PatientProfileView(user: user),
     );
   }
 }

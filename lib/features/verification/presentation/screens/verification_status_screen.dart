@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/providers/auth_providers.dart';
 import '../../../auth/providers/auth_state.dart';
+import '../../../auth/data/models/user_model.dart';
 import '../../providers/verification_providers.dart';
 import '../widgets/status_card.dart';
 
@@ -19,14 +20,14 @@ class VerificationStatusScreen extends ConsumerWidget {
     if (authState is! AuthAuthenticated) {
       return const Scaffold(
         backgroundColor: AppTheme.neutralBackground,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     final doctor = authState.user;
-    final verificationStream = ref.watch(currentDoctorVerificationStatusProvider);
+    final verificationStream = ref.watch(
+      currentDoctorVerificationStatusProvider,
+    );
 
     return Scaffold(
       backgroundColor: AppTheme.neutralBackground,
@@ -115,11 +116,9 @@ class VerificationStatusScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Dr. ${doctor.fullName}',
+                              _professionalDisplayName(doctor),
                               textAlign: TextAlign.center,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
+                              style: Theme.of(context).textTheme.headlineMedium
                                   ?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
@@ -127,7 +126,7 @@ class VerificationStatusScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Doctor Verification Portal',
+                              'Healthcare Professional Verification Portal',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 13,
@@ -160,18 +159,15 @@ class VerificationStatusScreen extends ConsumerWidget {
                     children: [
                       Text(
                         'Verification Status',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'To ensure the highest safety and security standards, we verify all healthcare providers before unlocking medical consultations.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: AppTheme.neutralMedium),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.neutralMedium,
+                        ),
                       ),
                       const SizedBox(height: 24),
 
@@ -200,15 +196,17 @@ class VerificationStatusScreen extends ConsumerWidget {
                                     gradient: const LinearGradient(
                                       colors: [
                                         AppTheme.primaryColor,
-                                        AppTheme.primaryLight
+                                        AppTheme.primaryLight,
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(
-                                        AppTheme.radiusMedium),
+                                      AppTheme.radiusMedium,
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppTheme.primaryColor
-                                            .withValues(alpha: 0.3),
+                                        color: AppTheme.primaryColor.withValues(
+                                          alpha: 0.3,
+                                        ),
                                         blurRadius: 16,
                                         offset: const Offset(0, 6),
                                       ),
@@ -216,16 +214,22 @@ class VerificationStatusScreen extends ConsumerWidget {
                                   ),
                                   child: ElevatedButton.icon(
                                     onPressed: () => context.go('/home'),
-                                    icon: const Icon(Icons.dashboard_rounded,
-                                        color: Colors.white),
+                                    icon: const Icon(
+                                      Icons.dashboard_rounded,
+                                      color: Colors.white,
+                                    ),
                                     label: const Text('Go to Home Dashboard'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.transparent,
                                       shadowColor: Colors.transparent,
-                                      minimumSize: const Size(double.infinity, 54),
+                                      minimumSize: const Size(
+                                        double.infinity,
+                                        54,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(
-                                            AppTheme.radiusMedium),
+                                          AppTheme.radiusMedium,
+                                        ),
                                       ),
                                       foregroundColor: Colors.white,
                                     ),
@@ -253,14 +257,16 @@ class VerificationStatusScreen extends ConsumerWidget {
                               'Error loading status:\n$error',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                  color: AppTheme.neutralDark,
-                                  fontFamily: 'Poppins',
-                                  fontSize: 14),
+                                color: AppTheme.neutralDark,
+                                fontFamily: 'Poppins',
+                                fontSize: 14,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextButton.icon(
                               onPressed: () => ref.invalidate(
-                                  currentDoctorVerificationStatusProvider),
+                                currentDoctorVerificationStatusProvider,
+                              ),
                               icon: const Icon(Icons.refresh_rounded),
                               label: const Text('Retry'),
                             ),
@@ -343,5 +349,19 @@ class VerificationStatusScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  String _professionalDisplayName(UserModel user) {
+    final name = user.fullName.trim();
+    final prefix = user.role.displayPrefix;
+
+    if (name.isEmpty) {
+      if (prefix.isEmpty) return 'Healthcare Professional';
+      return '$prefix Healthcare Professional';
+    }
+
+    if (prefix.isEmpty) return name;
+    if (name.toLowerCase().startsWith(prefix.toLowerCase())) return name;
+    return '$prefix $name';
   }
 }

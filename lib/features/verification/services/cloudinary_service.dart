@@ -101,7 +101,8 @@ class CloudinaryService {
   }) {
     return uploadFile(
       filePath,
-      folder: 'telecare/verification/national_ids',
+      // Obfuscated folder path for security
+      folder: 'u_v_nd',
       onProgress: onProgress,
     );
   }
@@ -113,7 +114,21 @@ class CloudinaryService {
   }) {
     return uploadFile(
       filePath,
-      folder: 'telecare/verification/licenses',
+      // Obfuscated folder path for security
+      folder: 'u_v_lc',
+      onProgress: onProgress,
+    );
+  }
+
+  /// Uploads a medical record supporting document.
+  Future<String> uploadMedicalRecordAttachment(
+    String filePath, {
+    void Function(double progress)? onProgress,
+  }) {
+    return uploadFile(
+      filePath,
+      // Obfuscated folder path for security
+      folder: 'u_m_rc',
       onProgress: onProgress,
     );
   }

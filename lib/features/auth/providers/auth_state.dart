@@ -57,3 +57,8 @@ class AuthOtpSent extends AuthState {
 class AuthPhoneVerified extends AuthState {
   const AuthPhoneVerified();
 }
+
+/// Registration was completed successfully.
+class AuthRegistrationSuccess extends AuthState {
+  const AuthRegistrationSuccess();
+}

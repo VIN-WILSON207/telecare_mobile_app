@@ -5,7 +5,7 @@ class VerificationRepository {
   final FirebaseFirestore _firestore;
 
   VerificationRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   // ---------------------------------------------------------------------------
   // Submit Verification
@@ -26,11 +26,11 @@ class VerificationRepository {
 
     // 2. Update the user document's verificationStatus to 'pending'
     final userRef = _firestore.collection('users').doc(request.doctorId);
-    batch.update(userRef, {
+    batch.set(userRef, {
       'verificationStatus': 'pending',
-    });
+    }, SetOptions(merge: true));
 
-    await batch.commit();
+    await batch.commit().timeout(const Duration(seconds: 25));
   }
 
   // ---------------------------------------------------------------------------
@@ -40,30 +40,44 @@ class VerificationRepository {
   /// Fetches the latest verification request for the given [doctorId].
   ///
   /// Returns `null` if no request has ever been submitted.
-  Future<VerificationRequestModel?> getVerificationStatus(String doctorId) async {
+  Future<VerificationRequestModel?> getVerificationStatus(
+    String doctorId,
+  ) async {
     final snapshot = await _firestore
         .collection('verification_requests')
         .where('doctorId', isEqualTo: doctorId)
-        .orderBy('submittedAt', descending: true)
-        .limit(1)
         .get();
 
     if (snapshot.docs.isEmpty) return null;
-    return VerificationRequestModel.fromFirestore(snapshot.docs.first);
+
+    final docs = snapshot.docs.toList()
+      ..sort((a, b) => _submittedAt(b).compareTo(_submittedAt(a)));
+
+    return VerificationRequestModel.fromFirestore(docs.first);
   }
 
   /// Exposes a real-time stream of the latest request for the given [doctorId].
-  Stream<VerificationRequestModel?> getVerificationStatusStream(String doctorId) {
+  Stream<VerificationRequestModel?> getVerificationStatusStream(
+    String doctorId,
+  ) {
     return _firestore
         .collection('verification_requests')
         .where('doctorId', isEqualTo: doctorId)
-        .orderBy('submittedAt', descending: true)
-        .limit(1)
         .snapshots()
         .map((snapshot) {
-      if (snapshot.docs.isEmpty) return null;
-      return VerificationRequestModel.fromFirestore(snapshot.docs.first);
-    });
+          if (snapshot.docs.isEmpty) return null;
+          final docs = snapshot.docs.toList()
+            ..sort((a, b) => _submittedAt(b).compareTo(_submittedAt(a)));
+          return VerificationRequestModel.fromFirestore(docs.first);
+        });
+  }
+
+  DateTime _submittedAt(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final raw = data['submittedAt'];
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is String) return DateTime.tryParse(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   // ---------------------------------------------------------------------------
@@ -75,13 +89,14 @@ class VerificationRepository {
     return _firestore
         .collection('verification_requests')
         .where('status', isEqualTo: 'pending')
-        .orderBy('submittedAt', descending: false) // oldest first
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => VerificationRequestModel.fromFirestore(doc))
-          .toList();
-    });
+          final docs = snapshot.docs.toList()
+            ..sort((a, b) => _submittedAt(a).compareTo(_submittedAt(b)));
+          return docs
+              .map((doc) => VerificationRequestModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   /// Approves a verification request.
@@ -95,10 +110,25 @@ class VerificationRepository {
     required String doctorId,
     required String reviewerId,
   }) async {
-    final batch = _firestore.batch();
     final now = DateTime.now();
 
-    final requestRef = _firestore.collection('verification_requests').doc(requestId);
+    // 1. Fetch request details to copy credentials
+    final requestDoc = await _firestore
+        .collection('verification_requests')
+        .doc(requestId)
+        .get();
+    final requestData = requestDoc.data();
+    final specialty = requestData?['specialty'] as String? ?? '';
+    final licenseNumber = requestData?['licenseNumber'] as String? ?? '';
+    final hospital = requestData?['hospital'] as String? ?? '';
+    final prefix = requestData?['prefix'] as String? ?? 'Dr.';
+    final hpType = requestData?['hpType'] as String? ?? 'doctor';
+
+    final batch = _firestore.batch();
+
+    final requestRef = _firestore
+        .collection('verification_requests')
+        .doc(requestId);
     batch.update(requestRef, {
       'status': 'approved',
       'reviewedAt': Timestamp.fromDate(now),
@@ -109,6 +139,24 @@ class VerificationRepository {
     final userRef = _firestore.collection('users').doc(doctorId);
     batch.update(userRef, {
       'verificationStatus': 'approved',
+      'role': hpType, // Elevate/ensure role is doctor/nurse/pharmacist/etc.
+      'specialty': specialty,
+      'licenseNumber': licenseNumber,
+      'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
+    });
+
+    // 2. Log doctor approval in Audit Logs
+    final auditRef = _firestore.collection('audit_logs').doc();
+    batch.set(auditRef, {
+      'id': auditRef.id,
+      'action': 'doctor_approval',
+      'userId': reviewerId,
+      'userName': 'Admin',
+      'details':
+          'Approved doctor verification for Dr. ${requestData?['doctorName'] ?? doctorId}. Specialty: $specialty, License: $licenseNumber',
+      'timestamp': FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -129,7 +177,16 @@ class VerificationRepository {
     final batch = _firestore.batch();
     final now = DateTime.now();
 
-    final requestRef = _firestore.collection('verification_requests').doc(requestId);
+    // Fetch request details for logging name
+    final requestDoc = await _firestore
+        .collection('verification_requests')
+        .doc(requestId)
+        .get();
+    final requestData = requestDoc.data();
+
+    final requestRef = _firestore
+        .collection('verification_requests')
+        .doc(requestId);
     batch.update(requestRef, {
       'status': 'rejected',
       'rejectionReason': reason,
@@ -138,16 +195,31 @@ class VerificationRepository {
     });
 
     final userRef = _firestore.collection('users').doc(doctorId);
-    batch.update(userRef, {
-      'verificationStatus': 'rejected',
+    batch.update(userRef, {'verificationStatus': 'rejected'});
+
+    // Log doctor rejection in Audit Logs
+    final auditRef = _firestore.collection('audit_logs').doc();
+    batch.set(auditRef, {
+      'id': auditRef.id,
+      'action': 'doctor_rejection',
+      'userId': reviewerId,
+      'userName': 'Admin',
+      'details':
+          'Rejected doctor verification for Dr. ${requestData?['doctorName'] ?? doctorId}. Reason: $reason',
+      'timestamp': FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
   }
 
   /// Fetches a specific verification request by [requestId].
-  Future<VerificationRequestModel?> getVerificationRequestById(String requestId) async {
-    final doc = await _firestore.collection('verification_requests').doc(requestId).get();
+  Future<VerificationRequestModel?> getVerificationRequestById(
+    String requestId,
+  ) async {
+    final doc = await _firestore
+        .collection('verification_requests')
+        .doc(requestId)
+        .get();
     if (!doc.exists) return null;
     return VerificationRequestModel.fromFirestore(doc);
   }

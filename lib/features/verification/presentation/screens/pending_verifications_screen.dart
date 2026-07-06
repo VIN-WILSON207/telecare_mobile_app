@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telecare_mobile_app/features/verification/providers/verification_providers.dart';
+import '../../../admin/providers/admin_providers.dart';
 
 class PendingVerificationsScreen extends ConsumerWidget {
   const PendingVerificationsScreen({super.key});
@@ -14,6 +15,17 @@ class PendingVerificationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pending Verifications'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              ref.read(adminActiveTabProvider.notifier).setTab(1);
+              context.go('/admin');
+            }
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),

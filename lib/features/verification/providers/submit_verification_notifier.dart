@@ -10,21 +10,20 @@ import '../data/models/verification_request_model.dart';
 import 'verification_providers.dart';
 
 /// Tracks the upload progress of the verification documents (0.0 to 1.0).
-final submitVerificationProgressProvider = Provider.autoDispose<ValueNotifier<double>>((ref) {
-  final notifier = ValueNotifier<double>(0.0);
-  ref.onDispose(() => notifier.dispose());
-  return notifier;
-});
+final submitVerificationProgressProvider =
+    Provider.autoDispose<ValueNotifier<double>>((ref) {
+      final notifier = ValueNotifier<double>(0.0);
+      ref.onDispose(() => notifier.dispose());
+      return notifier;
+    });
 
 /// Manages the state of the verification submission workflow.
 class SubmitVerificationNotifier extends AsyncNotifier<void> {
-
   @override
   FutureOr<void> build() {
     // No initial work needed; state is driven by [submit].
     return null;
   }
-
 
   /// Validates, uploads documents to Cloudinary, and saves the request to Firestore.
   ///
@@ -32,6 +31,11 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
   Future<void> submit({
     required String nationalIdPath,
     required String licensePath,
+    required String specialty,
+    required String licenseNumber,
+    required String hospital,
+    required String prefix,
+    required String hpType,
   }) async {
     final authState = ref.read(authNotifierProvider);
     if (authState is! AuthAuthenticated) {
@@ -55,7 +59,7 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
 
       void updateOverallProgress() {
         ref.read(submitVerificationProgressProvider).value =
-        (idProgress + licenseProgress) / 2.0;
+            (idProgress + licenseProgress) / 2.0;
       }
 
       // 1. Upload National ID
@@ -85,12 +89,26 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
         licenseUrl: licenseUrl,
         status: 'pending',
         submittedAt: DateTime.now(),
+        specialty: specialty,
+        licenseNumber: licenseNumber,
+        hospital: hospital,
+        prefix: prefix,
+        hpType: hpType,
       );
 
       // 4. Save request in Firestore
-      await repository.submitVerification(request);
+      await repository
+          .submitVerification(request)
+          .timeout(const Duration(seconds: 25));
 
       state = const AsyncValue.data(null);
+    } on TimeoutException catch (e, st) {
+      state = AsyncValue.error(
+        Exception(
+          'Submission is taking too long. Please check your connection and try again.',
+        ),
+        st,
+      );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -100,5 +118,5 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
 /// Provider for the SubmitVerificationNotifier.
 final submitVerificationProvider =
     AsyncNotifierProvider.autoDispose<SubmitVerificationNotifier, void>(
-  SubmitVerificationNotifier.new,
-);
+      SubmitVerificationNotifier.new,
+    );
