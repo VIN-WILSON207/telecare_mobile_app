@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/data/models/user_role.dart';
@@ -12,6 +13,8 @@ import '../../../auth/providers/auth_state.dart';
 import '../../data/exceptions/consultation_exceptions.dart';
 import '../../data/models/consultation_model.dart';
 import '../../providers/consultation_providers.dart';
+
+import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
 
 class ConsultationScreen extends ConsumerStatefulWidget {
   final String consultationId;
@@ -29,6 +32,9 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   bool _showingAudioDialog = false;
   bool _joining = false;
   bool _ending = false;
+  Timer? _noAnswerTimer;
+  bool _isAnswered = false;
+  bool _timedOut = false;
 
   @override
   void initState() {
@@ -36,13 +42,137 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     _connectivitySub = Connectivity()
         .onConnectivityChanged
         .listen(_onConnectivityChanged);
+    _setInCall(true);
   }
 
   @override
   void dispose() {
     _connectivitySub?.cancel();
     _sustainedTimer?.cancel();
+    _noAnswerTimer?.cancel();
+    _setInCall(false);
     super.dispose();
+  }
+
+  void _setInCall(bool value) {
+    try {
+      final authState = ref.read(authNotifierProvider);
+      if (authState is AuthAuthenticated) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(authState.user.uid)
+            .update({'inCall': value});
+      }
+    } catch (e) {
+      debugPrint('Failed to set inCall: $e');
+    }
+  }
+
+  Future<void> _handleCallTimeout(ConsultationModel consultation) async {
+    if (mounted) {
+      setState(() {
+        _timedOut = true;
+      });
+    }
+
+    try {
+      await JitsiMeet().hangUp();
+    } catch (e) {
+      debugPrint('[ConsultationScreen] Jitsi hangUp failed: $e');
+    }
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      await firestore.collection('consultations').doc(consultation.id).update({
+        'status': 'cancelled',
+        'notes': 'No answer / Timeout',
+      });
+      if (consultation.appointmentId.isNotEmpty) {
+        await firestore.collection('appointments').doc(consultation.appointmentId).update({
+          'status': 'completed',
+          'notes': 'Call not answered',
+        });
+      }
+    } catch (e) {
+      debugPrint('[ConsultationScreen] Firestore timeout update failed: $e');
+    }
+
+    if (mounted) {
+      _showTimeoutDialog();
+    }
+  }
+
+  void _showTimeoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.phone_missed_rounded, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('No Answer'),
+          ],
+        ),
+        content: const Text(
+          'The call was not answered. Please try again after a few minutes.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/consultations');
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrescriptionWaitingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, color: AppTheme.successColor),
+            SizedBox(width: 8),
+            Text('Consultation Ended', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'This consultation has completed. Please wait for your healthcare professional to upload your digital prescription if your case requires one.',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/home');
+            },
+            child: const Text('Go to Dashboard'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/prescriptions');
+            },
+            child: const Text('View Prescriptions'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Connectivity monitoring ──────────────────────────────────────────────────
@@ -160,10 +290,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   Future<void> _autoSwitchToAudioOnly() async {
     final authState = ref.read(authNotifierProvider);
     if (authState is! AuthAuthenticated) return;
+    final consultation = ref.read(consultationStreamProvider(widget.consultationId)).value;
+    if (consultation == null) return;
     try {
       await ref
           .read(consultationServiceProvider)
-          .switchToAudioOnly(widget.consultationId, authState.user.fullName);
+          .switchToAudioOnly(consultation, authState.user.fullName);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -180,10 +312,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   Future<void> _switchToAudioOnly() async {
     final authState = ref.read(authNotifierProvider);
     if (authState is! AuthAuthenticated) return;
+    final consultation = ref.read(consultationStreamProvider(widget.consultationId)).value;
+    if (consultation == null) return;
     try {
       await ref
           .read(consultationServiceProvider)
-          .switchToAudioOnly(widget.consultationId, authState.user.fullName);
+          .switchToAudioOnly(consultation, authState.user.fullName);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,10 +333,12 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
   Future<void> _switchToVideo() async {
     final authState = ref.read(authNotifierProvider);
     if (authState is! AuthAuthenticated) return;
+    final consultation = ref.read(consultationStreamProvider(widget.consultationId)).value;
+    if (consultation == null) return;
     try {
       await ref
           .read(consultationServiceProvider)
-          .switchToVideo(widget.consultationId, authState.user.fullName);
+          .switchToVideo(consultation, authState.user.fullName);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -225,6 +361,15 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
       await ref
           .read(consultationServiceProvider)
           .joinRoom(consultation, authState.user.fullName);
+
+      _noAnswerTimer?.cancel();
+      if (!_isAnswered) {
+        _noAnswerTimer = Timer(const Duration(minutes: 5), () async {
+          if (!_isAnswered && mounted) {
+            await _handleCallTimeout(consultation);
+          }
+        });
+      }
     } on InvalidRoomException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -280,16 +425,35 @@ class _ConsultationScreenState extends ConsumerState<ConsultationScreen> {
     final isDoctor = authState is AuthAuthenticated &&
         authState.user.role == UserRole.doctor;
 
+    consultationAsync.whenData((consultation) {
+      if (consultation != null) {
+        final otherUserId = isDoctor ? consultation.patientId : consultation.doctorId;
+        final otherUserAsync = ref.watch(userProfileProvider(otherUserId));
+        otherUserAsync.whenData((otherUser) {
+          if (otherUser != null && otherUser.inCall == true) {
+            _isAnswered = true;
+            _noAnswerTimer?.cancel();
+          }
+        });
+      }
+    });
+
     // Auto-navigate when consultation completes
     ref.listen(consultationStreamProvider(widget.consultationId),
         (_, next) {
       final c = next.value;
 
-
       if (c != null &&
           (c.status == 'completed' || c.status == 'cancelled') &&
           mounted) {
-        context.go('/consultations');
+        if (_timedOut) {
+          return;
+        }
+        if (c.status == 'completed' && !isDoctor) {
+          _showPrescriptionWaitingDialog(context);
+        } else {
+          context.go('/consultations');
+        }
       }
     });
 

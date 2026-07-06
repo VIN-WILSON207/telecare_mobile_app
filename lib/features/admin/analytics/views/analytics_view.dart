@@ -78,6 +78,7 @@ class AnalyticsView extends ConsumerWidget {
 
                 // 6. Today's consultations
                 final now = DateTime.now();
+                final today = DateTime(now.year, now.month, now.day);
                 final todayConsultations = appointments
                     .where((a) =>
                         a.status.toLowerCase() == 'completed' &&
@@ -86,12 +87,122 @@ class AnalyticsView extends ConsumerWidget {
                         a.appointmentDate.day == now.day)
                     .length;
 
-                // Mock data for daily registrations trend (last 7 days)
-                final dailyRegistrations = [12, 18, 9, 24, 15, 21, 17];
-                final dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                // 7. Daily registrations trend (last 7 days)
+                final last7Days = List.generate(
+                    7, (i) => today.subtract(Duration(days: 6 - i)));
+                final dayLabels = last7Days.map((d) {
+                  final weekdays = [
+                    'Mon',
+                    'Tue',
+                    'Wed',
+                    'Thu',
+                    'Fri',
+                    'Sat',
+                    'Sun'
+                  ];
+                  return weekdays[d.weekday - 1];
+                }).toList();
 
-                // Mock consultations per day
-                final consultationsPerDay = [8, 14, 6, 19, 11, 16, 10];
+                final dailyRegistrations = last7Days.map((date) {
+                  return users
+                      .where((u) =>
+                          u.createdAt.year == date.year &&
+                          u.createdAt.month == date.month &&
+                          u.createdAt.day == date.day)
+                      .length;
+                }).toList();
+
+                // 8. Consultations per day (last 7 days)
+                final consultationsPerDay = last7Days.map((date) {
+                  return appointments
+                      .where((a) =>
+                          a.status.toLowerCase() == 'completed' &&
+                          a.appointmentDate.year == date.year &&
+                          a.appointmentDate.month == date.month &&
+                          a.appointmentDate.day == date.day)
+                      .length;
+                }).toList();
+
+                // 9. Find most active doctor
+                String mostActiveDoctorName = 'N/A';
+                int maxDoctorConsultations = 0;
+                final doctorApptCount = <String, int>{};
+                for (var appt in appointments
+                    .where((a) => a.status.toLowerCase() == 'completed')) {
+                  doctorApptCount[appt.doctorName] =
+                      (doctorApptCount[appt.doctorName] ?? 0) + 1;
+                }
+                if (doctorApptCount.isNotEmpty) {
+                  final sorted = doctorApptCount.entries.toList()
+                    ..sort((a, b) => b.value.compareTo(a.value));
+                  mostActiveDoctorName = sorted.first.key;
+                  maxDoctorConsultations = sorted.first.value;
+                }
+
+                // 10. Avg consultations per day (this month)
+                final completedThisMonth = appointments
+                    .where((a) =>
+                        a.status.toLowerCase() == 'completed' &&
+                        a.appointmentDate.year == now.year &&
+                        a.appointmentDate.month == now.month)
+                    .length;
+                final avgConsultationsPerDay =
+                    now.day > 0 ? (completedThisMonth / now.day) : 0.0;
+
+                // 11. Growth indicators (this month vs last month)
+                final lastMonthYear = now.month == 1 ? now.year - 1 : now.year;
+                final lastMonth = now.month == 1 ? 12 : now.month - 1;
+
+                final thisMonthUsersCount = users
+                    .where((u) =>
+                        u.createdAt.year == now.year &&
+                        u.createdAt.month == now.month)
+                    .length;
+                final lastMonthUsersCount = users
+                    .where((u) =>
+                        u.createdAt.year == lastMonthYear &&
+                        u.createdAt.month == lastMonth)
+                    .length;
+                final userGrowth = lastMonthUsersCount > 0
+                    ? ((thisMonthUsersCount - lastMonthUsersCount) /
+                        lastMonthUsersCount *
+                        100)
+                    : (thisMonthUsersCount > 0 ? 100.0 : 0.0);
+
+                final thisMonthBookings = appointments
+                    .where((a) =>
+                        a.createdAt.year == now.year &&
+                        a.createdAt.month == now.month)
+                    .length;
+                final lastMonthBookings = appointments
+                    .where((a) =>
+                        a.createdAt.year == lastMonthYear &&
+                        a.createdAt.month == lastMonth)
+                    .length;
+                final bookingGrowth = lastMonthBookings > 0
+                    ? ((thisMonthBookings - lastMonthBookings) /
+                        lastMonthBookings *
+                        100)
+                    : (thisMonthBookings > 0 ? 100.0 : 0.0);
+
+                final activeUsersCount = users.where((u) => u.isActive).length;
+                final thisMonthActiveUsersCount = users
+                    .where((u) =>
+                        u.isActive &&
+                        u.createdAt.year == now.year &&
+                        u.createdAt.month == now.month)
+                    .length;
+                final lastMonthActiveUsersCount = users
+                    .where((u) =>
+                        u.isActive &&
+                        u.createdAt.year == lastMonthYear &&
+                        u.createdAt.month == lastMonth)
+                    .length;
+                final activeUserGrowth = lastMonthActiveUsersCount > 0
+                    ? ((thisMonthActiveUsersCount - lastMonthActiveUsersCount) /
+                        lastMonthActiveUsersCount *
+                        100)
+                    : (thisMonthActiveUsersCount > 0 ? 100.0 : 0.0);
 
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
@@ -145,8 +256,8 @@ class AnalyticsView extends ConsumerWidget {
                               value: '$totalUsers',
                               icon: Icons.people_alt_rounded,
                               color: AppTheme.infoColor,
-                              trend: '+12%',
-                              trendUp: true,
+                              trend: '${userGrowth >= 0 ? '+' : ''}${userGrowth.toStringAsFixed(1)}%',
+                              trendUp: userGrowth >= 0,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -203,13 +314,13 @@ class AnalyticsView extends ConsumerWidget {
                         child: Column(
                           children: [
                             SizedBox(
-                              height: 140,
+                              height: 160,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: List.generate(7, (index) {
                                   final maxVal = dailyRegistrations.reduce((a, b) => a > b ? a : b);
                                   final barHeight = maxVal > 0
-                                      ? (dailyRegistrations[index] / maxVal) * 110
+                                      ? (dailyRegistrations[index] / maxVal) * 115
                                       : 5.0;
                                   return Expanded(
                                     child: Padding(
@@ -272,13 +383,13 @@ class AnalyticsView extends ConsumerWidget {
                         child: Column(
                           children: [
                             SizedBox(
-                              height: 140,
+                              height: 160,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: List.generate(7, (index) {
                                   final maxVal = consultationsPerDay.reduce((a, b) => a > b ? a : b);
                                   final barHeight = maxVal > 0
-                                      ? (consultationsPerDay[index] / maxVal) * 110
+                                      ? (consultationsPerDay[index] / maxVal) * 115
                                       : 5.0;
                                   return Expanded(
                                     child: Padding(
@@ -343,8 +454,8 @@ class AnalyticsView extends ConsumerWidget {
                               context,
                               icon: Icons.star_rounded,
                               label: 'Most Active Doctor',
-                              value: 'Dr. Adaeze Obi',
-                              subValue: '42 consultations this month',
+                              value: mostActiveDoctorName,
+                              subValue: '$maxDoctorConsultations consultations total',
                               color: AppTheme.warningColor,
                             ),
                           ),
@@ -354,8 +465,8 @@ class AnalyticsView extends ConsumerWidget {
                               context,
                               icon: Icons.speed_rounded,
                               label: 'Avg. Consultations/Day',
-                              value: '12.4',
-                              subValue: 'Across all active doctors',
+                              value: avgConsultationsPerDay.toStringAsFixed(1),
+                              subValue: 'This month average',
                               color: AppTheme.primaryColor,
                             ),
                           ),
@@ -429,21 +540,24 @@ class AnalyticsView extends ConsumerWidget {
                             ].reduce(
                                 (max, current) => current > max ? current : max);
 
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 10.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  _buildBarItem('Pending', pendingAppts, maxCount,
-                                      AppTheme.statusPendingText),
-                                  _buildBarItem('Approved', approvedAppts,
-                                      maxCount, AppTheme.statusApprovedText),
-                                  _buildBarItem('Completed', completedAppts,
-                                      maxCount, AppTheme.statusCompletedText),
-                                  _buildBarItem('Cancelled', cancelledAppts,
-                                      maxCount, AppTheme.statusRejectedText),
-                                ],
+                            return SizedBox(
+                              height: 175,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 10.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _buildBarItem('Pending', pendingAppts, maxCount,
+                                        AppTheme.statusPendingText),
+                                    _buildBarItem('Approved', approvedAppts,
+                                        maxCount, AppTheme.statusApprovedText),
+                                    _buildBarItem('Completed', completedAppts,
+                                        maxCount, AppTheme.statusCompletedText),
+                                    _buildBarItem('Cancelled', cancelledAppts,
+                                        maxCount, AppTheme.statusRejectedText),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -484,7 +598,7 @@ class AnalyticsView extends ConsumerWidget {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '${users.where((u) => u.isActive).length}',
+                                        '$activeUsersCount',
                                         style: theme.textTheme.headlineLarge?.copyWith(
                                           fontWeight: FontWeight.w900,
                                           color: AppTheme.primaryColor,
@@ -495,25 +609,32 @@ class AnalyticsView extends ConsumerWidget {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.statusApproved,
+                                          color: activeUserGrowth >= 0
+                                              ? AppTheme.statusApproved
+                                              : AppTheme.statusRejected,
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.trending_up_rounded,
+                                            Icon(
+                                                activeUserGrowth >= 0
+                                                    ? Icons.trending_up_rounded
+                                                    : Icons.trending_down_rounded,
                                                 size: 12,
-                                                color:
-                                                    AppTheme.statusApprovedText),
-                                            SizedBox(width: 3),
+                                                color: activeUserGrowth >= 0
+                                                    ? AppTheme.statusApprovedText
+                                                    : AppTheme.statusRejectedText),
+                                            const SizedBox(width: 3),
                                             Text(
-                                              '+8.3%',
+                                              '${activeUserGrowth >= 0 ? '+' : ''}${activeUserGrowth.toStringAsFixed(1)}%',
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
-                                                color:
-                                                    AppTheme.statusApprovedText,
+                                                color: activeUserGrowth >= 0
+                                                    ? AppTheme.statusApprovedText
+                                                    : AppTheme.statusRejectedText,
                                               ),
                                             ),
                                           ],
@@ -522,7 +643,7 @@ class AnalyticsView extends ConsumerWidget {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  Text(
+                                  const Text(
                                     'Compared to last month',
                                     style: TextStyle(
                                       fontSize: 11,
@@ -636,7 +757,7 @@ class AnalyticsView extends ConsumerWidget {
                             child: _buildGrowthIndicator(
                               context,
                               label: 'User Growth',
-                              percentage: 23.5,
+                              percentage: userGrowth,
                               icon: Icons.person_add_rounded,
                               color: AppTheme.infoColor,
                             ),
@@ -646,19 +767,9 @@ class AnalyticsView extends ConsumerWidget {
                             child: _buildGrowthIndicator(
                               context,
                               label: 'Booking Growth',
-                              percentage: 18.2,
+                              percentage: bookingGrowth,
                               icon: Icons.event_available_rounded,
                               color: AppTheme.accentColor,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildGrowthIndicator(
-                              context,
-                              label: 'Revenue Growth',
-                              percentage: 31.7,
-                              icon: Icons.attach_money_rounded,
-                              color: AppTheme.warningColor,
                             ),
                           ),
                         ],
@@ -891,7 +1002,7 @@ class AnalyticsView extends ConsumerWidget {
           ),
           const SizedBox(height: 2),
           const Text(
-            'vs last quarter',
+            'vs last month',
             style: TextStyle(
               fontSize: 9.5,
               color: AppTheme.neutralLight,
@@ -965,7 +1076,7 @@ class AnalyticsView extends ConsumerWidget {
   }
 
   Widget _buildBarItem(String label, int value, int maxCount, Color color) {
-    final barHeight = maxCount > 0 ? (value / maxCount) * 100 : 0.0;
+    final barHeight = maxCount > 0 ? (value / maxCount) * 95 : 5.0;
     return Column(
       children: [
         Text(

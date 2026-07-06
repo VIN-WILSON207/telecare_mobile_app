@@ -262,14 +262,20 @@ class AuthRepository {
     required String pulse,
     required String temperature,
   }) async {
-    // Write health metric strings directly to the user document in Firestore.
+    final parsedPulse = int.tryParse(pulse.trim());
+    final parsedWeight = double.tryParse(weight.trim());
+    final parsedHeight = double.tryParse(height.trim());
+    final parsedTemp = double.tryParse(temperature.trim());
+    final cleanBp = bloodPressure.trim().isEmpty ? null : bloodPressure.trim();
+    final cleanBg = bloodGroup.trim().isEmpty ? null : bloodGroup.trim();
+
     await _firestore.collection('users').doc(uid).update({
-      'bloodPressure': bloodPressure,
-      'weight': weight,
-      'height': height,
-      'bloodGroup': bloodGroup,
-      'pulse': pulse,
-      'temperature': temperature,
+      'bloodPressure': cleanBp,
+      'weight': parsedWeight,
+      'height': parsedHeight,
+      'bloodGroup': cleanBg,
+      'pulse': parsedPulse,
+      'temperature': parsedTemp,
     });
   }
 }

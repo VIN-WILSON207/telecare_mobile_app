@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:telecare_mobile_app/features/verification/providers/review_verification_notifier.dart';
+import '../../../admin/providers/admin_providers.dart';
 import 'package:telecare_mobile_app/features/verification/providers/verification_providers.dart';
 import 'package:telecare_mobile_app/features/verification/presentation/widgets/document_viewer.dart';
+import 'package:telecare_mobile_app/core/widgets/telecare_ui.dart';
 
 class VerificationReviewScreen extends ConsumerStatefulWidget {
   final String requestId;
@@ -46,8 +48,12 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
               behavior: SnackBarBehavior.floating,
             ),
           );
-          // Go back to the pending list
-          context.pop();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            ref.read(adminActiveTabProvider.notifier).setTab(1);
+            context.go('/admin');
+          }
         },
         error: (error, _) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -64,7 +70,19 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
     return Scaffold(
       appBar: AppBar(
         title: const Text('Review Credentials'),
-        leading: isProcessing ? const SizedBox.shrink() : null, // disable back button when processing
+        leading: isProcessing
+            ? const SizedBox.shrink()
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    ref.read(adminActiveTabProvider.notifier).setTab(1);
+                    context.go('/admin');
+                  }
+                },
+              ),
       ),
       body: SafeArea(
         child: requestAsync.when(
@@ -327,6 +345,7 @@ class _VerificationReviewScreenState extends ConsumerState<VerificationReviewScr
               TextFormField(
                 controller: _reasonController,
                 maxLines: 4,
+                style: TeleCareInputStyles.formTextStyle,
                 decoration: InputDecoration(
                   hintText: 'e.g. The medical license has expired or the uploaded photo of the ID is blurry and illegible.',
                   hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),

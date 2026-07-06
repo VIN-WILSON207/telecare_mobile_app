@@ -53,7 +53,7 @@ class DoctorHomeScreen extends ConsumerWidget {
           TeleCareDrawerItem(
             label: 'Availability',
             icon: Icons.schedule_rounded,
-            route: '/appointments',
+            route: '/availability',
           ),
           TeleCareDrawerItem(
             label: 'Settings',

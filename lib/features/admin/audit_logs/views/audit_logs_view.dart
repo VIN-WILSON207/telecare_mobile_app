@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 import '../../models/audit_log_model.dart';
 import '../../providers/admin_providers.dart';
 
@@ -109,6 +110,7 @@ class _AuditLogsViewState extends ConsumerState<AuditLogsView> {
                   // ── Search Bar ──
                   TextField(
                     controller: _searchController,
+                    style: TeleCareInputStyles.formTextStyle,
                     onChanged: (val) => setState(() => _searchQuery = val),
                     decoration: InputDecoration(
                       hintText: 'Search by user, action or details...',
@@ -529,39 +531,42 @@ class _AuditLogsViewState extends ConsumerState<AuditLogsView> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.neutralSurface,
-                shape: BoxShape.circle,
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.neutralSurface,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.assignment_turned_in_rounded,
+                    size: 48, color: AppTheme.neutralLight),
               ),
-              child: const Icon(Icons.assignment_turned_in_rounded,
-                  size: 48, color: AppTheme.neutralLight),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'No audit logs found',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.neutralMedium,
+              const SizedBox(height: 16),
+              const Text(
+                'No audit logs found',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.neutralMedium,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Try adjusting your filters or search query',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.neutralLight,
+              const SizedBox(height: 6),
+              const Text(
+                'Try adjusting your filters or search query',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.neutralLight,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -7,6 +7,7 @@ import '../../../auth/data/models/user_model.dart';
 import '../../../medical_records/data/models/medical_record_model.dart';
 import '../../../medical_records/providers/medical_record_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 
 class PatientRecordsView extends ConsumerStatefulWidget {
   final UserModel user;
@@ -207,6 +208,7 @@ class _SearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      style: TeleCareInputStyles.formTextStyle,
       decoration: InputDecoration(
         hintText: 'Search records, diagnosis, doctor, medicine...',
         prefixIcon: const Icon(Icons.search_rounded),

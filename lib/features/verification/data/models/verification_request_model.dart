@@ -20,6 +20,8 @@ class VerificationRequestModel {
   final String specialty;
   final String licenseNumber;
   final String hospital;
+  final String prefix;
+  final String hpType;
 
   const VerificationRequestModel({
     required this.id,
@@ -35,6 +37,8 @@ class VerificationRequestModel {
     this.specialty = '',
     this.licenseNumber = '',
     this.hospital = '',
+    this.prefix = '',
+    this.hpType = '',
   });
 
   // ---------------------------------------------------------------------------
@@ -55,6 +59,8 @@ class VerificationRequestModel {
     String? specialty,
     String? licenseNumber,
     String? hospital,
+    String? prefix,
+    String? hpType,
   }) {
     return VerificationRequestModel(
       id: id ?? this.id,
@@ -70,6 +76,8 @@ class VerificationRequestModel {
       specialty: specialty ?? this.specialty,
       licenseNumber: licenseNumber ?? this.licenseNumber,
       hospital: hospital ?? this.hospital,
+      prefix: prefix ?? this.prefix,
+      hpType: hpType ?? this.hpType,
     );
   }
 
@@ -92,6 +100,8 @@ class VerificationRequestModel {
       'specialty': specialty,
       'licenseNumber': licenseNumber,
       'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
     };
   }
 
@@ -115,6 +125,8 @@ class VerificationRequestModel {
       specialty: map['specialty'] as String? ?? '',
       licenseNumber: map['licenseNumber'] as String? ?? '',
       hospital: map['hospital'] as String? ?? '',
+      prefix: map['prefix'] as String? ?? '',
+      hpType: map['hpType'] as String? ?? '',
     );
   }
 
@@ -142,6 +154,8 @@ class VerificationRequestModel {
       'specialty': specialty,
       'licenseNumber': licenseNumber,
       'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
     };
   }
 
@@ -160,6 +174,8 @@ class VerificationRequestModel {
       specialty: map['specialty'] as String? ?? '',
       licenseNumber: map['licenseNumber'] as String? ?? '',
       hospital: map['hospital'] as String? ?? '',
+      prefix: map['prefix'] as String? ?? '',
+      hpType: map['hpType'] as String? ?? '',
     );
   }
 
@@ -179,7 +195,7 @@ class VerificationRequestModel {
         'nationalIdUrl: $nationalIdUrl, licenseUrl: $licenseUrl, status: $status, '
         'submittedAt: $submittedAt, reviewedAt: $reviewedAt, reviewedBy: $reviewedBy, '
         'rejectionReason: $rejectionReason, specialty: $specialty, '
-        'licenseNumber: $licenseNumber, hospital: $hospital)';
+        'licenseNumber: $licenseNumber, hospital: $hospital, prefix: $prefix, hpType: $hpType)';
   }
 
   @override
@@ -198,7 +214,9 @@ class VerificationRequestModel {
         other.rejectionReason == rejectionReason &&
         other.specialty == specialty &&
         other.licenseNumber == licenseNumber &&
-        other.hospital == hospital;
+        other.hospital == hospital &&
+        other.prefix == prefix &&
+        other.hpType == hpType;
   }
 
   @override
@@ -216,5 +234,7 @@ class VerificationRequestModel {
         specialty,
         licenseNumber,
         hospital,
+        prefix,
+        hpType,
       );
 }

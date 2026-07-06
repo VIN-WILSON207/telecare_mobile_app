@@ -25,7 +25,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
     }
 
     final user = authState.user;
-    final isDoctor = user.role == UserRole.doctor;
+    final isProfessional = user.role.isHealthcareProfessional;
 
     return TeleCareHomeBackScope(
       currentPath: initialRecordsTab == 1
@@ -36,7 +36,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
         appBar: TeleCareTabAppBar(
           title: initialRecordsTab == 1
               ? 'Prescriptions'
-              : isDoctor
+              : isProfessional
               ? 'Medical Records'
               : 'My Medical Records',
           user: user,
@@ -44,7 +44,7 @@ class MedicalRecordsScreen extends ConsumerWidget {
         body: user.role == UserRole.patient
             ? PatientRecordsView(user: user, initialTab: initialRecordsTab)
             : DoctorMedicalRecordsView(user: user),
-        bottomNavigationBar: isDoctor
+        bottomNavigationBar: isProfessional
             ? const DoctorBottomNavBar(currentPath: '/medical-records')
             : const PatientBottomNavBar(currentPath: '/medical-records'),
       ),

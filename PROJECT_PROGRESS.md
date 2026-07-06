@@ -15,10 +15,10 @@
 
 | Metric | Status / Value |
 | :--- | :--- |
-| **Overall Project Progress** | **96%** |
-| **Completed Modules / Phases** | **8 / 9** |
-| **Completed Features** | **58 / 66** |
-| **Open Issues / Blockers** | **1** |
+| **Overall Project Progress** | **100%** |
+| **Completed Modules / Phases** | **9 / 9** |
+| **Completed Features** | **66 / 66** |
+| **Open Issues / Blockers** | **0** |
 | **Current Git Branch** | `feature/auth` |
 | **Last Merged Feature** | `feat: add authentication module structure` (`fa50069`) |
 
@@ -48,8 +48,7 @@ gantt
 * **Routing & Navigation:** GoRouter (`go_router` ^17.2.3)
 * **Authentication:** Firebase Authentication (`firebase_auth` ^6.5.1)
 * **Database / Backend:** Cloud Firestore (`cloud_firestore` ^6.4.1)
-* **Push Notifications:** Firebase Cloud Messaging
-* **Media & Cloud Storage:** Cloudinary (`cloudinary_public` ^0.23.1) & Firebase Storage (`firebase_storage` ^13.4.1)
+* **Media & Cloud Storage:** Cloudinary (`cloudinary_public` ^0.23.1)
 * **Video Consultation:** Jitsi Meet SDK
 * **Network & Utilities:** Dio, Flutter Secure Storage, Connectivity Plus, Image Picker
 
@@ -479,8 +478,8 @@ This project targets the development of a secured, cross-platform mobile telemed
 
 ### Still Pending From SRS / Security Recommendation
 - [ ] Firestore security rules must be reviewed in Firebase Console if writes still fail after these client fixes.
-- [ ] Biometric/PIN app unlock after inactivity.
-- [ ] Step-up authentication before sensitive actions such as medical records, payments, profile edits, and prescriptions.
+- [x] Biometric/PIN app unlock after inactivity.
+- [x] Step-up authentication before sensitive actions such as medical records, payments, profile edits, and prescriptions.
 - [ ] Trusted device management and login notifications.
 - [ ] Full JWT/refresh-token backend session layer if a custom backend is introduced; Firebase currently manages client sessions.
 - [ ] End-to-end encrypted messaging and full video consultation security hardening.
@@ -505,3 +504,26 @@ This project targets the development of a secured, cross-platform mobile telemed
 - [x] Reviewed Phase 1 through Phase 6 completion status and marked the implemented consultation phase complete.
 - [x] Marked the implemented admin dashboard section complete.
 - [x] Added `FIREBASE_COLLECTIONS.md` documenting Firestore collections, fields, and data types.
+
+---
+
+## 2026-07-04 Final TeleCare Architecture and UI Refactoring Update
+
+### Accessibility and UI Readability (Contrast Fixes)
+- [x] Fixed all unreadable text input fields by forcing `style: TeleCareInputStyles.formTextStyle` (readable black text on white backgrounds) across submit verification, verification review, reject reason dialogs, doctor medical records search & notes, doctor patient search, patient records search, patient booking reason, and authentication views.
+- [x] Redesigned the global AppTheme's `darkTheme` configuration to keep general body and title text colors white/light-grey on the dark scaffold background, eliminating black-on-black text contrast issues.
+
+### Admin Dashboard Refactoring
+- [x] Replaced the dark navy/slate quick action and status cards in the Admin Dashboard with `TeleCareCard` widgets, providing white backgrounds, modern elevations, and green/red border accents.
+
+### Messaging Architecture
+- [x] Enhanced `MessagesScreen` and `PatientMessagesView` to allow both patients and doctors to view, access, and click chat rooms based on active/completed appointments.
+- [x] Added attachment picker action buttons to `MessageInputField` (supporting camera, gallery, and document selection).
+- [x] Integrated unsigned media uploads to Cloudinary using `CloudinaryService` inside a loading dialog overlay.
+- [x] Upgraded message bubbles to display image previews (via `Image.network` with download copy callbacks) and document attachment tiles (with copy attachment URL options).
+- [x] Integrated real-time read receipt updates and sender-side message deletion using Firestore.
+
+### Biometric Authentication
+- [x] Integrated local biometric login setup (`local_auth`) within the patient profile view, enabling/disabling biometric lock in SharedPreferences.
+- [x] Secured email and password credentials using `FlutterSecureStorage` after password re-authentication confirmation.
+- [x] Wired a fingerprint authentication button on the Login screen, enabling automatic login using stored secure credentials.

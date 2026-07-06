@@ -13,7 +13,11 @@ class MedicalRecordRepository {
       _firestore.collection('medical_records');
 
   Future<String> createMedicalRecord(MedicalRecordModel record) async {
-    final ref = await _records.add(record.toMap());
+    final ref = await _records.add({
+      ...record.toMap(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
     return ref.id;
   }
 

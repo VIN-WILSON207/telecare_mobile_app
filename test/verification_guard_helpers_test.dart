@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telecare_mobile_app/features/auth/data/models/user_model.dart';
 import 'package:telecare_mobile_app/features/auth/data/models/user_role.dart';
-import 'verification_guard.dart';
+import 'package:telecare_mobile_app/features/verification/services/verification_guard.dart';
 
 void main() {
   group('VerificationGuard', () {
@@ -70,5 +70,3 @@ void main() {
     });
   });
 }
-
-

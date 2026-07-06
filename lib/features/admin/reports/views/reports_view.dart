@@ -37,14 +37,6 @@ class _ReportsViewState extends ConsumerState<ReportsView> {
       lastGenerated: 'Jun 29, 2026',
     ),
     _ReportType(
-      id: 'financial',
-      title: 'Financial Reports',
-      description: 'Revenue, payment summaries, transaction logs & invoices',
-      icon: Icons.attach_money_rounded,
-      color: AppTheme.warningColor,
-      lastGenerated: 'Jun 25, 2026',
-    ),
-    _ReportType(
       id: 'doctor_performance',
       title: 'Doctor Performance',
       description: 'Consultation counts, ratings, response times & activity',

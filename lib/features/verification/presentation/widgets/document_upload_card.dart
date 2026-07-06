@@ -51,10 +51,14 @@ class DocumentUploadCard extends StatelessWidget {
                   color: hasFile ? theme.colorScheme.secondary : theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],

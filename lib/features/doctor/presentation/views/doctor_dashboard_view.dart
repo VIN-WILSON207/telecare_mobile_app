@@ -7,6 +7,8 @@ import '../../../../shared/presentation/telecare_home_chrome.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../auth/providers/auth_providers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DoctorDashboardView extends ConsumerWidget {
   const DoctorDashboardView({super.key, required this.user});
@@ -24,6 +26,7 @@ class DoctorDashboardView extends ConsumerWidget {
     final todaySchedule = _todayAppointments(appointments);
     final greeting = _timeBasedGreeting();
     final displayName = _displayName(user);
+    final upcomingReminder = _upcomingApprovedAppointment(appointments);
 
     return RefreshIndicator(
       color: AppTheme.primaryColor,
@@ -51,6 +54,54 @@ class DoctorDashboardView extends ConsumerWidget {
                               fontWeight: FontWeight.w800,
                             ),
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: user.isOnline == true ? Colors.green : Colors.grey,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            user.isOnline == true ? 'Active Consultation' : 'Offline / Away',
+                            style: TextStyle(
+                              color: user.isOnline == true ? Colors.green.shade700 : AppTheme.neutralMedium,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Switch(
+                            value: user.isOnline == true,
+                            activeThumbColor: AppTheme.primaryColor,
+                            onChanged: (val) async {
+                              try {
+                                final firestore = ref.read(firestoreProvider);
+                                await firestore
+                                    .collection('users')
+                                    .doc(user.uid)
+                                    .update({'isOnline': val});
+                                
+                                // Refresh AuthNotifier state
+                                final updatedProfile = await ref.read(authRepositoryProvider).getUserProfile(user.uid);
+                                if (updatedProfile != null) {
+                                  ref.read(authNotifierProvider.notifier).updateAuthenticatedUser(updatedProfile);
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Failed to update status: $e')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 8),
                       const TrustBadge(
                         label: 'Verified',
@@ -68,6 +119,49 @@ class DoctorDashboardView extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
+            if (upcomingReminder != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Upcoming Consultation',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Appointment with ${upcomingReminder.patientName} starts in ${upcomingReminder.appointmentDate.difference(DateTime.now()).inMinutes} minutes.',
+                            style: const TextStyle(fontSize: 11, color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onPressed: () => launchCall(context, ref, upcomingReminder),
+                      child: const Text('Join Call', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             _SearchPatientField(onTap: () => context.go('/patients')),
             const SizedBox(height: 24),
             _SectionHeader(
@@ -114,10 +208,19 @@ class DoctorDashboardView extends ConsumerWidget {
     final list =
         appointments
             .where(
-              (appointment) =>
-                  appointment.appointmentDate.year == now.year &&
-                  appointment.appointmentDate.month == now.month &&
-                  appointment.appointmentDate.day == now.day,
+              (appointment) {
+                final isToday = appointment.appointmentDate.year == now.year &&
+                    appointment.appointmentDate.month == now.month &&
+                    appointment.appointmentDate.day == now.day;
+                if (!isToday) return false;
+
+                final status = appointment.status.toLowerCase();
+                if (status == 'completed' || status == 'cancelled' || status == 'rejected') {
+                  return false;
+                }
+
+                return appointment.appointmentDate.isAfter(now);
+              },
             )
             .toList()
           ..sort((a, b) => a.appointmentDate.compareTo(b.appointmentDate));
@@ -125,10 +228,24 @@ class DoctorDashboardView extends ConsumerWidget {
   }
 
   String _displayName(UserModel user) {
+    final prefix = user.prefix ?? user.role.displayPrefix;
     final trimmed = user.fullName.trim();
-    if (trimmed.isEmpty) return 'Doctor';
-    if (trimmed.toLowerCase().startsWith('dr.')) return trimmed;
-    return 'Dr. ${trimmed.split(RegExp(r'\s+')).first}';
+    if (trimmed.isEmpty) return user.role.label;
+    final firstName = trimmed.split(RegExp(r'\s+')).first;
+    return prefix.isNotEmpty ? '$prefix $firstName' : firstName;
+  }
+
+  static AppointmentModel? _upcomingApprovedAppointment(List<AppointmentModel> appointments) {
+    final now = DateTime.now();
+    for (final a in appointments) {
+      if (a.status.toLowerCase() == 'approved') {
+        final diff = a.appointmentDate.difference(now);
+        if (diff.inMinutes >= 0 && diff.inMinutes <= 30) {
+          return a;
+        }
+      }
+    }
+    return null;
   }
 
   String _timeBasedGreeting() {
@@ -169,13 +286,13 @@ class _SearchPatientField extends StatelessWidget {
   }
 }
 
-class _TodayScheduleList extends StatelessWidget {
+class _TodayScheduleList extends ConsumerWidget {
   const _TodayScheduleList({required this.appointments});
 
   final List<AppointmentModel> appointments;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (appointments.isEmpty) {
       return const _InfoBox(message: 'No appointments scheduled for today.');
     }
@@ -247,7 +364,7 @@ class _TodayScheduleList extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => context.go('/consultations'),
+                    onPressed: () => launchCall(context, ref, appointment),
                     icon: const Icon(
                       Icons.video_call_rounded,
                       color: AppTheme.primaryColor,
@@ -351,6 +468,11 @@ class _DoctorQuickActions extends StatelessWidget {
         'Requests',
         Icons.assignment_rounded,
         () => context.go('/appointments'),
+      ),
+      _ActionItem(
+        'Safety Measures',
+        Icons.health_and_safety_rounded,
+        () => context.go('/upload-safety'),
       ),
     ];
 
@@ -530,7 +652,7 @@ class _AnalyticsGrid extends StatelessWidget {
         crossAxisCount: 3,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 1.1,
+        childAspectRatio: 0.88,
       ),
       itemBuilder: (context, index) => _AnalyticsCard(item: items[index]),
     );
@@ -806,4 +928,44 @@ String _formatTime(DateTime value) {
 String _weekdayLabel(int weekday) {
   const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   return labels[weekday - 1];
+}
+
+Future<void> launchCall(BuildContext context, WidgetRef ref, AppointmentModel appointment) async {
+  try {
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore
+        .collection('consultations')
+        .where('appointmentId', isEqualTo: appointment.id)
+        .where('doctorId', isEqualTo: appointment.doctorId)
+        .get();
+
+    String consultationId;
+    if (snapshot.docs.isNotEmpty) {
+      consultationId = snapshot.docs.first.id;
+    } else {
+      final docRef = await firestore.collection('consultations').add({
+        'appointmentId': appointment.id,
+        'doctorId': appointment.doctorId,
+        'patientId': appointment.patientId,
+        'roomId': appointment.id,
+        'status': 'scheduled',
+        'mode': 'video',
+        'startedAt': null,
+        'endedAt': null,
+        'duration': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      consultationId = docRef.id;
+    }
+
+    if (context.mounted) {
+      context.go('/consultation/$consultationId');
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch call: $e')),
+      );
+    }
+  }
 }

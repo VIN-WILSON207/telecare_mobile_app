@@ -28,14 +28,7 @@ class MessagesScreen extends ConsumerWidget {
       child: Scaffold(
         backgroundColor: AppTheme.neutralBackground,
         appBar: TeleCareTabAppBar(title: 'Chats & Messages', user: user),
-        body: user.role == UserRole.patient
-            ? PatientMessagesView(user: user)
-            : const Center(
-                child: Text(
-                  'Doctor messages are managed through active consultations.',
-                  style: TextStyle(color: AppTheme.neutralMedium),
-                ),
-              ),
+        body: PatientMessagesView(user: user),
         bottomNavigationBar: user.role == UserRole.doctor
             ? const DoctorBottomNavBar(currentPath: '/messages')
             : const PatientBottomNavBar(currentPath: '/messages'),

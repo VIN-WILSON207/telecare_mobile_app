@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'telecare_ui.dart';
 
 class SearchField extends StatelessWidget {
   final TextEditingController controller;
@@ -40,20 +41,13 @@ class SearchField extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       textInputAction: textInputAction,
+      cursorColor: TeleCareInputStyles.cursorColor,
       style: TextStyle(
-        color: textColor ?? AppTheme.neutralDark,
+        color: textColor ?? Colors.black,
         fontSize: 15,
       ),
-      cursorColor: AppTheme.primaryColor,
-      decoration: InputDecoration(
+      decoration: TeleCareInputStyles.decoration(
         hintText: hintText,
-        hintStyle: TextStyle(
-          color: hintColor ?? AppTheme.neutralMedium,
-          fontSize: 15,
-        ),
-        filled: true,
-        fillColor: backgroundColor,
-        contentPadding: contentPadding,
         prefixIcon: prefixIcon,
         suffixIcon: showClear && onClear != null
             ? IconButton(
@@ -62,6 +56,14 @@ class SearchField extends StatelessWidget {
                 onPressed: onClear,
               )
             : null,
+        dense: true,
+        fillColor: backgroundColor,
+      ).copyWith(
+        hintStyle: TextStyle(
+          color: hintColor ?? AppTheme.neutralMedium,
+          fontSize: 15,
+        ),
+        contentPadding: contentPadding,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
           borderSide: BorderSide(color: borderColor, width: 1.5),
@@ -72,7 +74,7 @@ class SearchField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
         ),
       ),
     );

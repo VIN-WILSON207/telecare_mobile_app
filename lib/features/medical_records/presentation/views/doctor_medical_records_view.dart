@@ -7,10 +7,12 @@ import 'package:intl/intl.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../auth/data/models/user_role.dart';
 import '../../data/models/medical_record_model.dart';
 import '../../providers/medical_record_providers.dart';
 import '../../../verification/services/cloudinary_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 
 class DoctorMedicalRecordsView extends ConsumerStatefulWidget {
   final UserModel user;
@@ -74,6 +76,7 @@ class _DoctorMedicalRecordsViewState
               children: [
                 TextField(
                   controller: _searchController,
+                  style: TeleCareInputStyles.formTextStyle,
                   decoration: InputDecoration(
                     hintText: 'Search patient, diagnosis, medicine...',
                     prefixIcon: const Icon(Icons.search_rounded),
@@ -313,6 +316,7 @@ class _CreateRecordSheetState extends ConsumerState<_CreateRecordSheet> {
                   controller: _notesController,
                   minLines: 2,
                   maxLines: 4,
+                  style: TeleCareInputStyles.formTextStyle,
                   decoration: const InputDecoration(
                     labelText: 'Additional notes',
                     prefixIcon: Icon(Icons.notes_rounded),
@@ -372,6 +376,13 @@ class _CreateRecordSheetState extends ConsumerState<_CreateRecordSheet> {
   }
 
   Future<void> _pickAndUploadAttachment() async {
+    if (_attachments.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A record can include up to 5 attachments.')),
+      );
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
@@ -401,12 +412,13 @@ class _CreateRecordSheetState extends ConsumerState<_CreateRecordSheet> {
 
     final appointment = _selectedAppointment!;
     final now = DateTime.now();
+    final professionalName = _professionalDisplayName(widget.doctor);
     final record = MedicalRecordModel(
       id: '',
       appointmentId: appointment.id,
       doctorId: widget.doctor.uid,
-      doctorName: 'Dr. vin israel',
-      nurseName: 'nurse. wilson',
+      doctorName: professionalName,
+      nurseName: widget.doctor.role != UserRole.doctor ? professionalName : '',
       patientId: appointment.patientId,
       patientName: appointment.patientName,
       diagnosis: _diagnosisController.text.trim(),
@@ -452,6 +464,13 @@ class _CreateRecordSheetState extends ConsumerState<_CreateRecordSheet> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  String _professionalDisplayName(UserModel user) {
+    final name = user.fullName.trim();
+    final prefix = user.role.displayPrefix;
+    if (prefix.isEmpty || name.startsWith(prefix)) return name;
+    return '$prefix $name';
+  }
 }
 
 class _RequiredTextField extends StatelessWidget {
@@ -472,6 +491,7 @@ class _RequiredTextField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      style: TeleCareInputStyles.formTextStyle,
       decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {

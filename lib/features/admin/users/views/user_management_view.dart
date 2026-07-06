@@ -52,9 +52,9 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
             case 'Admins':
               return u.role == UserRole.admin;
             case 'Doctors':
-              if (u.role != UserRole.doctor &&
-                  u.role != UserRole.nurse &&
-                  u.role != UserRole.labTechnician) return false;
+              if (!u.role.isHealthcareProfessional) {
+                return false;
+              }
               switch (_doctorSubFilter) {
                 case 'Verified':
                   return u.verificationStatus == 'approved';
@@ -216,9 +216,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
     required String adminName,
   }) {
     final theme = Theme.of(context);
-    final isDoctor = user.role == UserRole.doctor ||
-        user.role == UserRole.nurse ||
-        user.role == UserRole.labTechnician;
+    final isDoctor = user.role.isHealthcareProfessional;
     final isVerifiedDoctor = isDoctor && user.verificationStatus == 'approved';
     final isSuspendedDoctor = isDoctor && user.verificationStatus == 'suspended';
 
@@ -247,9 +245,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
                         : null,
                     child: (user.profileImage == null || user.profileImage!.isEmpty)
                         ? Icon(
-                            user.role == UserRole.doctor ||
-                                    user.role == UserRole.nurse ||
-                                    user.role == UserRole.labTechnician
+                            user.role.isHealthcareProfessional
                                 ? Icons.medical_services_rounded
                                 : user.role == UserRole.admin
                                     ? Icons.admin_panel_settings_rounded
@@ -324,80 +320,112 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
               const SizedBox(height: 12),
               const Divider(),
               const SizedBox(height: 6),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Icon(Icons.history_rounded, size: 14, color: AppTheme.neutralLight),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Last Login: $lastLogin',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.neutralMedium),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: () => _showUserProfileDialog(context, user),
-                    icon: const Icon(Icons.visibility_rounded, size: 16),
-                    label: const Text('View', style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 4),
-                  if (user.role != UserRole.admin) ...[
-                    if (isDoctor) ...[
-                      TextButton.icon(
-                        onPressed: () => _toggleDoctorSuspension(
-                          context,
-                          user: user,
-                          adminUid: adminUid,
-                          adminName: adminName,
-                        ),
-                        icon: Icon(
-                          isSuspendedDoctor ? Icons.check_circle_outline_rounded : Icons.block_rounded,
-                          size: 16,
-                          color: isSuspendedDoctor ? AppTheme.successColor : AppTheme.warningColor,
-                        ),
-                        label: Text(
-                          isSuspendedDoctor ? 'Unsuspend' : 'Suspend',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isSuspendedDoctor ? AppTheme.successColor : AppTheme.warningColor,
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      TextButton.icon(
-                        onPressed: () => _toggleUserActiveStatus(
-                          context,
-                          user: user,
-                          adminUid: adminUid,
-                          adminName: adminName,
-                        ),
-                        icon: Icon(
-                          user.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
-                          size: 16,
-                          color: user.isActive ? AppTheme.errorColor : AppTheme.successColor,
-                        ),
-                        label: Text(
-                          user.isActive ? 'Deactivate' : 'Activate',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: user.isActive ? AppTheme.errorColor : AppTheme.successColor,
-                          ),
-                        ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.history_rounded, size: 14, color: AppTheme.neutralLight),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Last Login: $lastLogin',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.neutralMedium),
                       ),
                     ],
-                    const SizedBox(width: 4),
-                    TextButton.icon(
-                      onPressed: () => _confirmDeleteUser(
-                        context,
-                        user: user,
-                        adminUid: adminUid,
-                        adminName: adminName,
+                  ),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () => _showUserProfileDialog(context, user),
+                        icon: const Icon(Icons.visibility_rounded, size: 14),
+                        label: const Text('View', style: TextStyle(fontSize: 11.5)),
                       ),
-                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.errorColor),
-                      label: const Text(
-                        'Delete',
-                        style: TextStyle(fontSize: 12, color: AppTheme.errorColor),
-                      ),
-                    ),
-                  ],
+                      if (user.role != UserRole.admin) ...[
+                        if (isDoctor)
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => _toggleDoctorSuspension(
+                              context,
+                              user: user,
+                              adminUid: adminUid,
+                              adminName: adminName,
+                            ),
+                            icon: Icon(
+                              isSuspendedDoctor ? Icons.check_circle_outline_rounded : Icons.block_rounded,
+                              size: 14,
+                              color: isSuspendedDoctor ? AppTheme.successColor : AppTheme.warningColor,
+                            ),
+                            label: Text(
+                              isSuspendedDoctor ? 'Unsuspend' : 'Suspend',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isSuspendedDoctor ? AppTheme.successColor : AppTheme.warningColor,
+                              ),
+                            ),
+                          )
+                        else
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: () => _toggleUserActiveStatus(
+                              context,
+                              user: user,
+                              adminUid: adminUid,
+                              adminName: adminName,
+                            ),
+                            icon: Icon(
+                              user.isActive ? Icons.block_rounded : Icons.check_circle_outline_rounded,
+                              size: 14,
+                              color: user.isActive ? AppTheme.errorColor : AppTheme.successColor,
+                            ),
+                            label: Text(
+                              user.isActive ? 'Deactivate' : 'Activate',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: user.isActive ? AppTheme.errorColor : AppTheme.successColor,
+                              ),
+                            ),
+                          ),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: () => _confirmDeleteUser(
+                            context,
+                            user: user,
+                            adminUid: adminUid,
+                            adminName: adminName,
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded, size: 14, color: AppTheme.errorColor),
+                          label: const Text(
+                            'Delete',
+                            style: TextStyle(fontSize: 11.5, color: AppTheme.errorColor),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ],
@@ -419,6 +447,10 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
         return Colors.teal;
       case UserRole.labTechnician:
         return Colors.orange.shade800;
+      case UserRole.pharmacist:
+        return Colors.blue.shade700;
+      case UserRole.physiotherapist:
+        return Colors.green.shade700;
     }
   }
 
@@ -453,9 +485,7 @@ class _UserManagementViewState extends ConsumerState<UserManagementView> {
             _buildProfileDetail('Email', user.email),
             _buildProfileDetail('Phone', user.phone.isNotEmpty ? user.phone : 'N/A'),
             _buildProfileDetail('Status', user.verificationStatus == 'suspended' ? 'Suspended' : (user.isActive ? 'Active' : 'Deactivated')),
-            if (user.role == UserRole.doctor ||
-                user.role == UserRole.nurse ||
-                user.role == UserRole.labTechnician) ...[
+            if (user.role.isHealthcareProfessional) ...[
               _buildProfileDetail('Verification', user.verificationStatus.toUpperCase()),
               _buildProfileDetail('Specialty', user.specialty ?? 'N/A'),
               _buildProfileDetail('License Number', user.licenseNumber ?? 'N/A'),

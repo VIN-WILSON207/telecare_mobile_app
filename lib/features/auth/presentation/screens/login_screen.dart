@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../providers/auth_providers.dart';
 import '../../providers/auth_state.dart';
-import '../../../../core/theme/app_theme.dart';
-import '../../../admin/dashboard/admin_dashboard_screen.dart';
-import '../../../home/presentation/home_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +23,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
+  bool _isBiometricEnabled = false;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +37,60 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+    _checkBiometricSupport();
+  }
+
+  Future<void> _checkBiometricSupport() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final enabled = prefs.getBool('use_biometric') ?? false;
+    if (enabled) {
+      final auth = LocalAuthentication();
+      final isSupported = await auth.isDeviceSupported();
+      final canCheck = await auth.canCheckBiometrics;
+      if (isSupported && canCheck) {
+        setState(() {
+          _isBiometricEnabled = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleBiometricLogin() async {
+    final auth = LocalAuthentication();
+    try {
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Authenticate to sign in to your TeleCare account.',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (authenticated) {
+        const storage = FlutterSecureStorage();
+        final email = await storage.read(key: 'saved_email');
+        final password = await storage.read(key: 'saved_password');
+
+        if (email != null && password != null) {
+          ref.read(authNotifierProvider.notifier).login(
+                email: email,
+                password: password,
+              );
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Saved credentials not found. Please log in with password.')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Biometric authentication failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -64,19 +120,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next is AuthAuthenticated) {
         final user = next.user;
-        // Check if the user's email matches the hardcoded admin email.
-        if (user.email.trim().toLowerCase() == 'abilavinwilson@gmail.com') {
-          // Immediately route the admin to the Admin Dashboard screen.
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
-          );
+        // Use GoRouter for navigation instead of direct Navigator calls
+        if (user.email.trim().toLowerCase() == 'abilavinwilson@gmail.com' || 
+            user.role.value == 'admin') {
+          context.go('/admin');
         } else {
-          // Route any other user to the standard Home screen.
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
+          context.go('/home');
         }
       } else if (next is AuthError) {
         ScaffoldMessenger.of(context)
@@ -332,11 +381,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           ),
                           const SizedBox(height: 28),
 
-                          // Sign In Button
-                          _GradientButton(
-                            label: 'Sign In',
-                            isLoading: isLoading,
-                            onPressed: _handleLogin,
+                           // Sign In Button
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _GradientButton(
+                                  label: 'Sign In',
+                                  isLoading: isLoading,
+                                  onPressed: _handleLogin,
+                                ),
+                              ),
+                              if (_isBiometricEnabled) ...[
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  height: 58,
+                                  width: 58,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                      ),
+                                    ),
+                                    onPressed: isLoading ? null : _handleBiometricLogin,
+                                    child: const Icon(
+                                      Icons.fingerprint_rounded,
+                                      color: AppTheme.primaryColor,
+                                      size: 32,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           const SizedBox(height: 24),
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'telecare_ui.dart';
+
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -27,8 +29,9 @@ class CustomTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
-      style: const TextStyle(fontSize: 18, color: Colors.black87),
-      decoration: InputDecoration(
+      cursorColor: TeleCareInputStyles.cursorColor,
+      style: TeleCareInputStyles.formTextStyle,
+      decoration: TeleCareInputStyles.decoration(
         labelText: label,
         hintText: hint,
         suffixIcon: suffixIcon,

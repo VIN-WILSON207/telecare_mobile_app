@@ -28,6 +28,7 @@ class ConsultationRepository {
       // Check for existing consultation with the same appointmentId.
       final existing = await _consultations
           .where('appointmentId', isEqualTo: appointment.id)
+          .where('doctorId', isEqualTo: appointment.doctorId)
           .get();
 
       if (existing.docs.isNotEmpty) {
@@ -87,6 +88,14 @@ class ConsultationRepository {
   /// Updates the status of a consultation document.
   Future<void> updateStatus(String id, String status) async {
     await _consultations.doc(id).update({'status': status});
+  }
+
+  /// Updates the status of an appointment document.
+  Future<void> updateAppointmentStatus(String id, String status) async {
+    await _firestore.collection('appointments').doc(id).update({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   /// Watches a single consultation document by [id].

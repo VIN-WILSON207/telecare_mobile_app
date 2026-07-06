@@ -46,23 +46,38 @@ class UserModel {
   /// Flag indicating if the account is currently active.
   final bool isActive;
 
+  /// HP prefix or title (e.g. 'Dr.', 'Nurse', 'Pharm.')
+  final String? prefix;
+
+  /// HP specific sub-type (e.g. 'doctor', 'nurse', 'pharmacist', 'physiotherapist')
+  final String? hpType;
+
+  /// Tracks if the HP is currently active/online for consultation
+  final bool? isOnline;
+
+  /// Tracks if the HP is currently in an active consultation call
+  final bool? inCall;
+
+  /// Weekly availability schedules for the professional
+  final Map<String, dynamic>? availability;
+
   /// Patient's recorded blood pressure (only for patients).
-  final String bloodPressure;
+  final String? bloodPressure;
 
   /// Patient's recorded body weight (only for patients).
-  final String weight;
+  final double? weight;
 
   /// Patient's recorded height (only for patients).
-  final String height;
+  final double? height;
 
   /// Patient's recorded blood group (only for patients).
-  final String bloodGroup;
+  final String? bloodGroup;
 
   /// Patient's recorded pulse rate (only for patients).
-  final String pulse;
+  final int? pulse;
 
   /// Patient's recorded body temperature (only for patients).
-  final String temperature;
+  final double? temperature;
 
   /// Creates a new [UserModel] instance.
   const UserModel({
@@ -80,12 +95,17 @@ class UserModel {
     this.licenseNumber,
     this.hospital,
     this.isActive = true,
-    this.bloodPressure = '',
-    this.weight = '',
-    this.height = '',
-    this.bloodGroup = '',
-    this.pulse = '',
-    this.temperature = '',
+    this.prefix,
+    this.hpType,
+    this.isOnline = false,
+    this.inCall = false,
+    this.availability,
+    this.bloodPressure,
+    this.weight,
+    this.height,
+    this.bloodGroup,
+    this.pulse,
+    this.temperature,
   });
 
   /// Creates a copy of this [UserModel] with replacement values.
@@ -104,12 +124,17 @@ class UserModel {
     String? licenseNumber,
     String? hospital,
     bool? isActive,
+    String? prefix,
+    String? hpType,
+    bool? isOnline,
+    bool? inCall,
+    Map<String, dynamic>? availability,
     String? bloodPressure,
-    String? weight,
-    String? height,
+    double? weight,
+    double? height,
     String? bloodGroup,
-    String? pulse,
-    String? temperature,
+    int? pulse,
+    double? temperature,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -126,6 +151,11 @@ class UserModel {
       licenseNumber: licenseNumber ?? this.licenseNumber,
       hospital: hospital ?? this.hospital,
       isActive: isActive ?? this.isActive,
+      prefix: prefix ?? this.prefix,
+      hpType: hpType ?? this.hpType,
+      isOnline: isOnline ?? this.isOnline,
+      inCall: inCall ?? this.inCall,
+      availability: availability ?? this.availability,
       bloodPressure: bloodPressure ?? this.bloodPressure,
       weight: weight ?? this.weight,
       height: height ?? this.height,
@@ -152,6 +182,11 @@ class UserModel {
       'licenseNumber': licenseNumber,
       'hospital': hospital,
       'isActive': isActive,
+      'prefix': prefix,
+      'hpType': hpType,
+      'isOnline': isOnline,
+      'inCall': inCall,
+      'availability': availability,
       'bloodPressure': bloodPressure,
       'weight': weight,
       'height': height,
@@ -179,12 +214,17 @@ class UserModel {
       licenseNumber: data['licenseNumber'] as String?,
       hospital: data['hospital'] as String?,
       isActive: data['isActive'] as bool? ?? true,
-      bloodPressure: data['bloodPressure'] as String? ?? '',
-      weight: data['weight'] as String? ?? '',
-      height: data['height'] as String? ?? '',
-      bloodGroup: data['bloodGroup'] as String? ?? '',
-      pulse: data['pulse'] as String? ?? '',
-      temperature: data['temperature'] as String? ?? '',
+      prefix: data['prefix'] as String?,
+      hpType: data['hpType'] as String?,
+      isOnline: data['isOnline'] as bool? ?? false,
+      inCall: data['inCall'] as bool? ?? false,
+      availability: data['availability'] as Map<String, dynamic>?,
+      bloodPressure: _parseString(data['bloodPressure']),
+      weight: _parseDouble(data['weight']),
+      height: _parseDouble(data['height']),
+      bloodGroup: _parseString(data['bloodGroup']),
+      pulse: _parseInt(data['pulse']),
+      temperature: _parseDouble(data['temperature']),
     );
   }
 
@@ -205,12 +245,17 @@ class UserModel {
       licenseNumber: map['licenseNumber'] as String?,
       hospital: map['hospital'] as String?,
       isActive: map['isActive'] as bool? ?? true,
-      bloodPressure: map['bloodPressure'] as String? ?? '',
-      weight: map['weight'] as String? ?? '',
-      height: map['height'] as String? ?? '',
-      bloodGroup: map['bloodGroup'] as String? ?? '',
-      pulse: map['pulse'] as String? ?? '',
-      temperature: map['temperature'] as String? ?? '',
+      prefix: map['prefix'] as String?,
+      hpType: map['hpType'] as String?,
+      isOnline: map['isOnline'] as bool? ?? false,
+      inCall: map['inCall'] as bool? ?? false,
+      availability: map['availability'] as Map<String, dynamic>?,
+      bloodPressure: _parseString(map['bloodPressure']),
+      weight: _parseDouble(map['weight']),
+      height: _parseDouble(map['height']),
+      bloodGroup: _parseString(map['bloodGroup']),
+      pulse: _parseInt(map['pulse']),
+      temperature: _parseDouble(map['temperature']),
     );
   }
 
@@ -238,6 +283,11 @@ class UserModel {
       'licenseNumber': licenseNumber,
       'hospital': hospital,
       'isActive': isActive,
+      'prefix': prefix,
+      'hpType': hpType,
+      'isOnline': isOnline,
+      'inCall': inCall,
+      'availability': availability,
       'bloodPressure': bloodPressure,
       'weight': weight,
       'height': height,
@@ -264,12 +314,17 @@ class UserModel {
       licenseNumber: map['licenseNumber'] as String?,
       hospital: map['hospital'] as String?,
       isActive: map['isActive'] as bool? ?? true,
-      bloodPressure: map['bloodPressure'] as String? ?? '',
-      weight: map['weight'] as String? ?? '',
-      height: map['height'] as String? ?? '',
-      bloodGroup: map['bloodGroup'] as String? ?? '',
-      pulse: map['pulse'] as String? ?? '',
-      temperature: map['temperature'] as String? ?? '',
+      prefix: map['prefix'] as String?,
+      hpType: map['hpType'] as String?,
+      isOnline: map['isOnline'] as bool? ?? false,
+      inCall: map['inCall'] as bool? ?? false,
+      availability: map['availability'] as Map<String, dynamic>?,
+      bloodPressure: _parseString(map['bloodPressure']),
+      weight: _parseDouble(map['weight']),
+      height: _parseDouble(map['height']),
+      bloodGroup: _parseString(map['bloodGroup']),
+      pulse: _parseInt(map['pulse']),
+      temperature: _parseDouble(map['temperature']),
     );
   }
 
@@ -291,6 +346,10 @@ class UserModel {
         other.licenseNumber == licenseNumber &&
         other.hospital == hospital &&
         other.isActive == isActive &&
+        other.prefix == prefix &&
+        other.hpType == hpType &&
+        other.isOnline == isOnline &&
+        other.inCall == inCall &&
         other.bloodPressure == bloodPressure &&
         other.weight == weight &&
         other.height == height &&
@@ -300,7 +359,7 @@ class UserModel {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
         uid,
         fullName,
         email,
@@ -315,13 +374,17 @@ class UserModel {
         licenseNumber,
         hospital,
         isActive,
+        prefix,
+        hpType,
+        isOnline,
+        inCall,
         bloodPressure,
         weight,
         height,
         bloodGroup,
         pulse,
         temperature,
-      );
+      ]);
 
   @override
   String toString() {
@@ -331,7 +394,8 @@ class UserModel {
         'verificationStatus: $verificationStatus, '
         'profileImage: $profileImage, createdAt: $createdAt, '
         'specialty: $specialty, licenseNumber: $licenseNumber, '
-        'hospital: $hospital, isActive: $isActive, '
+        'hospital: $hospital, isActive: $isActive, prefix: $prefix, hpType: $hpType, '
+        'isOnline: $isOnline, inCall: $inCall, '
         'bloodPressure: $bloodPressure, weight: $weight, height: $height, '
         'bloodGroup: $bloodGroup, pulse: $pulse, temperature: $temperature)';
   }
@@ -349,5 +413,31 @@ class UserModel {
     if (value is Timestamp) return value.toDate();
     if (value is String && value.isNotEmpty) return DateTime.parse(value);
     return null;
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      if (value.isEmpty) return null;
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    }
+    return null;
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      if (value.isEmpty) return null;
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  static String? _parseString(dynamic value) {
+    if (value == null) return null;
+    final str = value.toString().trim();
+    return str.isEmpty ? null : str;
   }
 }

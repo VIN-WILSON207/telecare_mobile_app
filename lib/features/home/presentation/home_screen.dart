@@ -43,6 +43,8 @@ class HomeScreen extends ConsumerWidget {
         return const AdminShellScreen();
       case UserRole.nurse:
       case UserRole.labTechnician:
+      case UserRole.pharmacist:
+      case UserRole.physiotherapist:
         // For now, treat other healthcare professionals similarly to doctors or show a coming soon
         return DoctorHomeScreen(user: user);
     }

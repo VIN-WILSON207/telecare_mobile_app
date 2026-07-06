@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 import '../../../auth/data/models/user_role.dart';
 import '../../providers/admin_providers.dart';
 import '../../../verification/providers/review_verification_notifier.dart';
@@ -309,12 +310,10 @@ class DashboardView extends ConsumerWidget {
                           itemCount: requests.where((r) => r.status == 'pending').take(2).length,
                           itemBuilder: (context, index) {
                             final request = requests.where((r) => r.status == 'pending').take(2).toList()[index];
-                            return Card(
+                            return TeleCareCard(
                               margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                                side: const BorderSide(color: AppTheme.neutralSurface, width: 1.2),
-                              ),
+                              padding: EdgeInsets.zero,
+                              accentColor: AppTheme.primaryColor,
                               child: Padding(
                                 padding: const EdgeInsets.all(14),
                                 child: Row(
@@ -426,12 +425,9 @@ class DashboardView extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Card(
-                        color: AppTheme.errorColor.withValues(alpha: 0.03),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                          side: const BorderSide(color: AppTheme.neutralSurface, width: 1.2),
-                        ),
+                      TeleCareCard(
+                        accentColor: AppTheme.errorColor,
+                        padding: EdgeInsets.zero,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -723,13 +719,10 @@ class DashboardView extends ConsumerWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 0,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        side: const BorderSide(color: AppTheme.neutralSurface, width: 1.2),
-      ),
+    return TeleCareCard(
+      padding: EdgeInsets.zero,
+      accentColor: AppTheme.primaryColor,
+      onTap: onTap,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -887,6 +880,7 @@ class DashboardView extends ConsumerWidget {
               TextFormField(
                 controller: reasonController,
                 maxLines: 3,
+                style: TeleCareInputStyles.formTextStyle,
                 decoration: const InputDecoration(
                   hintText: 'e.g. The uploaded license is blurry or expired.',
                 ),

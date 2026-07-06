@@ -44,7 +44,7 @@ class PatientBottomNavBar extends StatelessWidget {
       _BottomTabItem(
         icon: Icons.calendar_today_rounded,
         activeIcon: Icons.calendar_month_rounded,
-        label: 'Appointments',
+        label: 'Bookings',
         route: '/appointments',
       ),
       _BottomTabItem(

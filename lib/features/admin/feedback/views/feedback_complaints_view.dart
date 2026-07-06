@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 
@@ -255,6 +256,7 @@ class _FeedbackComplaintsViewState
           // Search bar
           TextField(
             controller: _searchController,
+            style: TeleCareInputStyles.formTextStyle,
             onChanged: (val) => setState(() => _searchQuery = val),
             decoration: InputDecoration(
               hintText: 'Search by user, ID, or description...',

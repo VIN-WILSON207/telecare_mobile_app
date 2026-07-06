@@ -16,7 +16,7 @@ class AppTheme {
   static const Color neutralMedium = Color(0xFF475569); // Slate Gray
   static const Color neutralLight = Color(0xFF94A3B8); // Light Slate
   static const Color neutralSurface = Color(0xFFF1F5F9); // Off White
-  static const Color neutralBackground = Color(0xFFF8FAFC); // Ice White
+  static const Color neutralBackground = Color(0xFFFFFFFF); // White
 
   static const Color cardWhite = Color(0xFFFFFFFF);
   static const Color errorColor = Color(0xFFEF4444);
@@ -255,6 +255,16 @@ class AppTheme {
           color: neutralLight,
           fontWeight: FontWeight.w400,
         ),
+        helperStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: neutralMedium,
+          fontWeight: FontWeight.w400,
+        ),
+        errorStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: errorColor,
+          fontWeight: FontWeight.w500,
+        ),
         labelStyle: GoogleFonts.poppins(
           fontSize: 18,
           color: neutralMedium,
@@ -325,7 +335,7 @@ class AppTheme {
 
   // ── Dark Theme ────────────────────────────────────────────────────────────────
   static ThemeData get darkTheme {
-    return ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: ColorScheme(
@@ -359,6 +369,74 @@ class AppTheme {
         inversePrimary: primaryColor,
       ),
       scaffoldBackgroundColor: const Color(0xFF0F172A),
+    );
+
+    return base.copyWith(
+      textTheme: GoogleFonts.poppinsTextTheme(base.textTheme).copyWith(
+        titleMedium: GoogleFonts.poppins(color: Colors.white),
+        bodyLarge: GoogleFonts.poppins(color: Colors.white),
+        bodyMedium: GoogleFonts.poppins(color: neutralLight),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: cardWhite,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: primaryLight, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: errorColor, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusMedium),
+          borderSide: const BorderSide(color: errorColor, width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        hintStyle: GoogleFonts.poppins(
+          fontSize: 18,
+          color: neutralLight,
+          fontWeight: FontWeight.w400,
+        ),
+        helperStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: neutralMedium,
+          fontWeight: FontWeight.w400,
+        ),
+        errorStyle: GoogleFonts.poppins(
+          fontSize: 13,
+          color: errorColor,
+          fontWeight: FontWeight.w500,
+        ),
+        labelStyle: GoogleFonts.poppins(
+          fontSize: 18,
+          color: neutralMedium,
+          fontWeight: FontWeight.w400,
+        ),
+        floatingLabelStyle: GoogleFonts.poppins(
+          fontSize: 17,
+          color: primaryLight,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIconColor: neutralMedium,
+        suffixIconColor: neutralMedium,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: primaryLight,
+        selectionColor: primaryLight.withValues(alpha: 0.3),
+        selectionHandleColor: primaryLight,
+      ),
     );
   }
 }

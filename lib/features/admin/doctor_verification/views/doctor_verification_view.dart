@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../auth/data/models/user_role.dart';
 import '../../../verification/providers/review_verification_notifier.dart';
@@ -743,6 +744,7 @@ class _DoctorVerificationViewState
               TextFormField(
                 controller: docsController,
                 maxLines: 3,
+                style: TeleCareInputStyles.formTextStyle,
                 decoration: const InputDecoration(
                   hintText:
                       'e.g. Please upload a clearer copy of your Medical License Certificate.',
@@ -840,6 +842,7 @@ class _DoctorVerificationViewState
               TextFormField(
                 controller: reasonController,
                 maxLines: 3,
+                style: TeleCareInputStyles.formTextStyle,
                 decoration: const InputDecoration(
                   hintText: 'e.g. The uploaded license is blurry or expired.',
                 ),

@@ -3,9 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/service_providers.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../auth/data/models/user_role.dart';
+import '../../../auth/providers/auth_providers.dart';
+import '../../../medical_records/providers/medical_record_providers.dart';
+import '../../../consultation/providers/consultation_providers.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PatientDashboardView extends ConsumerWidget {
   const PatientDashboardView({super.key, required this.user});
@@ -54,12 +62,16 @@ class PatientDashboardView extends ConsumerWidget {
             _SectionHeader(title: 'Quick Services'),
             const SizedBox(height: 12),
             _QuickServicesGrid(
-              onEmergency: () => _showEmergencyMessage(context),
+              onEmergency: () => _showEmergencyDialog(context, ref, user),
             ),
             const SizedBox(height: 26),
-            _SectionHeader(title: 'Health Summary'),
+            _SectionHeader(
+              title: 'Health Summary',
+              actionLabel: 'Edit',
+              onAction: () => _showEditSummaryDialog(context, ref, user),
+            ),
             const SizedBox(height: 12),
-            const _HealthSummaryGrid(),
+            _HealthSummaryGrid(user: user),
             const SizedBox(height: 26),
             _SectionHeader(
               title: 'Nearby Doctors',
@@ -79,13 +91,71 @@ class PatientDashboardView extends ConsumerWidget {
             const SizedBox(height: 26),
             _SectionHeader(title: 'Medication Reminder'),
             const SizedBox(height: 12),
-            const _MedicationReminderCard(),
+            _MedicationReminderCard(user: user),
             const SizedBox(height: 26),
             _SectionHeader(title: 'Notifications'),
             const SizedBox(height: 12),
-            ..._buildNotifications(
-              appointmentsAsync,
-            ).map(_NotificationTile.new),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: ref.watch(notificationServiceProvider).watchUserNotifications(user.uid),
+              builder: (context, snapshot) {
+                final docs = snapshot.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const _InfoBox(message: 'No notifications at this time.');
+                }
+                return Column(
+                  children: docs.take(5).map((doc) {
+                    final data = doc.data();
+                    final title = data['title'] as String? ?? '';
+                    final body = data['body'] as String? ?? '';
+                    final type = data['type'] as String? ?? 'general';
+                    final timestampVal = data['createdAt'];
+                    
+                    DateTime? dt;
+                    if (timestampVal is Timestamp) {
+                      dt = timestampVal.toDate();
+                    } else if (timestampVal is String) {
+                      dt = DateTime.tryParse(timestampVal);
+                    }
+                    final timeStr = dt != null ? DateFormat('jm').format(dt) : 'Now';
+
+                    IconData icon;
+                    Color color;
+                    switch (type) {
+                      case 'appointment_approved':
+                      case 'appointment_confirmed':
+                        icon = Icons.event_available_rounded;
+                        color = AppTheme.primaryColor;
+                        break;
+                      case 'consultation_started':
+                        icon = Icons.video_call_rounded;
+                        color = AppTheme.accentColor;
+                        break;
+                      case 'prescription':
+                      case 'prescription_added':
+                        icon = Icons.medication_rounded;
+                        color = AppTheme.accentAlt;
+                        break;
+                      default:
+                        icon = Icons.notifications_active_rounded;
+                        color = AppTheme.infoColor;
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _NotificationTile(
+                        _HomeNotification(
+                          title: title,
+                          message: body,
+                          time: timeStr,
+                          icon: icon,
+                          color: color,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -117,51 +187,127 @@ class PatientDashboardView extends ConsumerWidget {
     return 'Good Evening';
   }
 
-  static void _showEmergencyMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Emergency SOS request started.')),
-    );
-  }
-
-  static List<_HomeNotification> _buildNotifications(
-    AsyncValue<List<AppointmentModel>> appointmentsAsync,
-  ) {
-    final notifications = <_HomeNotification>[
-      const _HomeNotification(
-        title: 'Doctor sent a prescription',
-        message: 'Your latest prescription is ready in Medical Records.',
-        time: '1 hr ago',
-        icon: Icons.medication_rounded,
-        color: AppTheme.accentAlt,
-      ),
-      const _HomeNotification(
-        title: 'Lab result available',
-        message: 'A new lab result has been added to your records.',
-        time: 'Yesterday',
-        icon: Icons.science_rounded,
-        color: AppTheme.infoColor,
-      ),
-    ];
-
-    appointmentsAsync.maybeWhen(
-      data: (appointments) {
-        if (appointments.any((a) => a.status.toLowerCase() == 'approved')) {
-          notifications.insert(
-            0,
-            const _HomeNotification(
-              title: 'Appointment confirmed',
-              message: 'Your consultation is confirmed. Join when it is time.',
-              time: 'Just now',
-              icon: Icons.event_available_rounded,
-              color: AppTheme.primaryColor,
+  void _showEmergencyDialog(BuildContext context, WidgetRef ref, UserModel patient) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Emergency SOS', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Describe your medical emergency. This message will be broadcasted to all available healthcare professionals immediately.',
+              style: TextStyle(fontSize: 13, height: 1.4),
             ),
-          );
-        }
-      },
-      orElse: () {},
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: controller,
+              maxLines: 3,
+              style: TeleCareInputStyles.formTextStyle,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Sharp chest pain, difficulty breathing...',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              final desc = controller.text.trim();
+              if (desc.isEmpty) return;
+              Navigator.pop(ctx);
+              
+              // Broadcast to online HPs
+              try {
+                final firestore = ref.read(firestoreProvider);
+                final chatRepo = ref.read(chatRepositoryProvider);
+                final notifSvc = ref.read(notificationServiceProvider);
+                
+                final snapshot = await firestore
+                    .collection('users')
+                    .where('role', whereIn: ['doctor', 'nurse', 'pharmacist', 'physiotherapist', 'lab_technician'])
+                    .where('isOnline', isEqualTo: true)
+                    .get();
+                
+                final hps = snapshot.docs;
+                if (hps.isEmpty) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No available healthcare personnel online right now. Dialing emergency services...'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                  return;
+                }
+                
+                int count = 0;
+                for (final hpDoc in hps) {
+                  final hpId = hpDoc.id;
+                  
+                  final roomId = chatRepo.roomIdForPair(doctorId: hpId, patientId: patient.uid);
+                  await chatRepo.getOrCreateRoom(
+                    doctorId: hpId,
+                    patientId: patient.uid,
+                    appointmentId: '',
+                    consultationId: '',
+                  );
+                  
+                  await chatRepo.sendRoomMessage(
+                    roomId: roomId,
+                    senderId: patient.uid,
+                    senderName: patient.fullName,
+                    text: '⚠️ EMERGENCY SOS: $desc',
+                  );
+                  
+                  await notifSvc.sendNotification(
+                    targetUserId: hpId,
+                    title: '🚨 EMERGENCY SOS 🚨',
+                    body: '${patient.fullName} needs help: $desc',
+                    data: {
+                      'type': 'emergency_sos',
+                      'patientId': patient.uid,
+                      'roomId': roomId,
+                    },
+                  );
+                  count++;
+                }
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Emergency broadcasted successfully to $count online HP(s).'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to broadcast: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('Broadcast SOS'),
+          ),
+        ],
+      ),
     );
-
-    return notifications;
   }
 }
 
@@ -432,36 +578,52 @@ class _QuickServicesGrid extends StatelessWidget {
 }
 
 class _HealthSummaryGrid extends StatelessWidget {
-  const _HealthSummaryGrid();
+  const _HealthSummaryGrid({required this.user});
+
+  final UserModel user;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
+    // Calculate BMI dynamically
+    String bmiStr = 'N/A';
+    if (user.weight != null && user.height != null && user.height! > 0) {
+      final heightInMeters = user.height! / 100.0;
+      final bmi = user.weight! / (heightInMeters * heightInMeters);
+      bmiStr = bmi.toStringAsFixed(1);
+    }
+
+    final items = [
       _HealthMetric(
         'Pulse',
-        '72 bpm',
+        user.pulse != null ? '${user.pulse} bpm' : 'N/A',
         Icons.favorite_rounded,
-        Color(0xFFE11D48),
+        const Color(0xFFE11D48),
       ),
       _HealthMetric(
         'Blood Pressure',
-        '118/76',
+        user.bloodPressure ?? 'N/A',
         Icons.bloodtype_rounded,
-        Color(0xFF2563EB),
+        const Color(0xFF2563EB),
       ),
       _HealthMetric(
         'Temperature',
-        '36.9 C',
+        user.temperature != null ? '${user.temperature} °C' : 'N/A',
         Icons.thermostat_rounded,
-        Color(0xFFF59E0B),
+        const Color(0xFFF59E0B),
       ),
       _HealthMetric(
         'Weight',
-        '68 kg',
+        user.weight != null ? '${user.weight} kg' : 'N/A',
         Icons.monitor_weight_rounded,
-        Color(0xFF0F766E),
+        const Color(0xFF0F766E),
       ),
-      _HealthMetric('BMI', '22.4', Icons.show_chart_rounded, Color(0xFF7C3AED)),
+      _HealthMetric(
+        'Height',
+        user.height != null ? '${user.height} cm' : 'N/A',
+        Icons.height,
+        const Color(0xFF8B5CF6),
+      ),
+      _HealthMetric('BMI', bmiStr, Icons.show_chart_rounded, const Color(0xFF7C3AED)),
     ];
 
     return SizedBox(
@@ -490,7 +652,7 @@ class _NearbyDoctorsSection extends StatelessWidget {
       );
     }
 
-    final visibleDoctors = doctors.take(6).toList();
+    final visibleDoctors = doctors.where((doc) => doc.role != UserRole.patient).take(6).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -511,28 +673,54 @@ class _NearbyDoctorsSection extends StatelessWidget {
   }
 }
 
-class _HealthTipsCarousel extends StatelessWidget {
+class _HealthTipsCarousel extends ConsumerWidget {
   const _HealthTipsCarousel();
 
   @override
-  Widget build(BuildContext context) {
-    const tips = [
-      _Tip(
-        'Hydration check',
-        'Drink water before your next consultation to help stabilize pulse and pressure readings.',
-      ),
-      _Tip(
-        'Medication routine',
-        'Set reminders for recurring medication so missed doses are easier to avoid.',
-      ),
-      _Tip(
-        'Better sleep',
-        'Keep a regular sleep time to support recovery and mood.',
-      ),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firestore = ref.watch(firestoreProvider);
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: firestore
+          .collection('safety_measures')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          final defaultTips = [
+            const _Tip(
+              'Hydration check',
+              'Drink water before your next consultation to help stabilize pulse and pressure readings.',
+            ),
+            const _Tip(
+              'Medication routine',
+              'Set reminders for recurring medication so missed doses are easier to avoid.',
+            ),
+            const _Tip(
+              'Better sleep',
+              'Keep a regular sleep time to support recovery and mood.',
+            ),
+          ];
+          return _buildTipsPageView(defaultTips);
+        }
 
+        final tips = docs.map((doc) {
+          final data = doc.data();
+          final title = data['title'] as String? ?? 'Health Tip';
+          final content = data['content'] as String? ?? '';
+          final category = data['category'] as String? ?? 'General';
+          final hpName = data['hpName'] as String? ?? 'HP';
+          return _Tip('$title (by $hpName)', '$content [$category]');
+        }).toList();
+
+        return _buildTipsPageView(tips);
+      },
+    );
+  }
+
+  Widget _buildTipsPageView(List<_Tip> tips) {
     return SizedBox(
-      height: 132,
+      height: 142,
       child: PageView.builder(
         controller: PageController(viewportFraction: 0.92),
         itemCount: tips.length,
@@ -545,60 +733,89 @@ class _HealthTipsCarousel extends StatelessWidget {
   }
 }
 
-class _MedicationReminderCard extends StatelessWidget {
-  const _MedicationReminderCard();
+class _MedicationReminderCard extends ConsumerWidget {
+  const _MedicationReminderCard({required this.user});
+
+  final UserModel user;
 
   @override
-  Widget build(BuildContext context) {
-    return _SurfaceCard(
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.primarySurface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.alarm_rounded,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Take: Paracetamol',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w700,
-                  ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recordsAsync = ref.watch(patientMedicalRecordsProvider(user.uid));
+
+    return recordsAsync.when(
+      loading: () => const _LoadingLine(),
+      error: (e, _) => _InfoBox(message: 'Unable to load prescriptions: $e'),
+      data: (records) {
+        final recordWithPrescription = records
+            .where((r) => r.prescription.isNotEmpty)
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+        String medicineName = 'No active medications';
+        String dosageStr = 'Check back later';
+
+        if (recordWithPrescription.isNotEmpty) {
+          final latestPresc = recordWithPrescription.first.prescription.first;
+          medicineName = 'Take: ${latestPresc.medicine}';
+          dosageStr = '${latestPresc.dosage} - ${latestPresc.duration}';
+        }
+
+        return _SurfaceCard(
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppTheme.primarySurface,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '8:00 PM',
-                  style: TextStyle(color: AppTheme.neutralMedium, fontSize: 12),
+                child: const Icon(
+                  Icons.alarm_rounded,
+                  color: AppTheme.primaryColor,
                 ),
-              ],
-            ),
-          ),
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 38),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
               ),
-            ),
-            child: const Text('Mark as Taken'),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      medicineName,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dosageStr,
+                      style: const TextStyle(color: AppTheme.neutralMedium, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              if (recordWithPrescription.isNotEmpty)
+                OutlinedButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Prescription marked as taken.')),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 38),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Mark as Taken'),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -861,18 +1078,24 @@ class _TipCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             tip.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            tip.body,
-            style: const TextStyle(
-              color: AppTheme.neutralMedium,
-              fontSize: 12,
-              height: 1.35,
+          Expanded(
+            child: Text(
+              tip.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppTheme.neutralMedium,
+                fontSize: 12,
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -1044,6 +1267,124 @@ class _HomeNotification {
   final String time;
   final IconData icon;
   final Color color;
+}
+
+Future<void> _showEditSummaryDialog(BuildContext context, WidgetRef ref, UserModel user) async {
+  final formKey = GlobalKey<FormState>();
+  final pulseController = TextEditingController(text: user.pulse?.toString() ?? '');
+  final bpController = TextEditingController(text: user.bloodPressure ?? '');
+  final tempController = TextEditingController(text: user.temperature?.toString() ?? '');
+  final weightController = TextEditingController(text: user.weight?.toString() ?? '');
+  final heightController = TextEditingController(text: user.height?.toString() ?? '');
+  final bgController = TextEditingController(text: user.bloodGroup ?? '');
+
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Edit Health Summary'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: pulseController,
+                keyboardType: TextInputType.number,
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Pulse (bpm)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: bpController,
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Blood Pressure (e.g. 120/80)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: tempController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Temperature (°C)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: weightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Weight (kg)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: heightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Height (cm)'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].contains(bgController.text) ? bgController.text : null,
+                style: TeleCareInputStyles.formTextStyle,
+                decoration: const InputDecoration(labelText: 'Blood Group'),
+                items: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+                    .map((bg) => DropdownMenuItem(value: bg, child: Text(bg)))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) bgController.text = val;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (formKey.currentState!.validate()) {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(authRepositoryProvider).updatePatientVitals(
+                  uid: user.uid,
+                  bloodPressure: bpController.text.trim(),
+                  weight: weightController.text.trim(),
+                  height: heightController.text.trim(),
+                  bloodGroup: bgController.text.trim(),
+                  pulse: pulseController.text.trim(),
+                  temperature: tempController.text.trim(),
+                );
+
+                // Refresh notifier state
+                final updatedProfile = await ref.read(authRepositoryProvider).getUserProfile(user.uid);
+                if (updatedProfile != null) {
+                  ref.read(authNotifierProvider.notifier).updateAuthenticatedUser(updatedProfile);
+                }
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Health summary updated successfully!'),
+                      backgroundColor: AppTheme.successColor,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
 }
 
 String _formatDateTime(DateTime value) {

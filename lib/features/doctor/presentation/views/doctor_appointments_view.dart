@@ -8,6 +8,8 @@ import '../../../consultation/providers/consultation_providers.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/service_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 
 class DoctorAppointmentsView extends ConsumerStatefulWidget {
   final UserModel user;
@@ -538,6 +540,25 @@ class _DoctorAppointmentCard extends StatelessWidget {
               ),
             ],
           ),
+          if (appointment.status.toLowerCase() == 'approved') ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.phone_enabled_rounded, size: 14),
+              label: const Text(
+                'Launch Consultation Call',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 36),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => launchCall(context, ref, appointment),
+            ),
+          ],
           if (canComplete) ...[
             const SizedBox(height: 12),
             ElevatedButton.icon(
@@ -673,5 +694,45 @@ class _ErrorCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> launchCall(BuildContext context, WidgetRef ref, AppointmentModel appointment) async {
+  try {
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore
+        .collection('consultations')
+        .where('appointmentId', isEqualTo: appointment.id)
+        .where('doctorId', isEqualTo: appointment.doctorId)
+        .get();
+
+    String consultationId;
+    if (snapshot.docs.isNotEmpty) {
+      consultationId = snapshot.docs.first.id;
+    } else {
+      final docRef = await firestore.collection('consultations').add({
+        'appointmentId': appointment.id,
+        'doctorId': appointment.doctorId,
+        'patientId': appointment.patientId,
+        'roomId': appointment.id,
+        'status': 'scheduled',
+        'mode': 'video',
+        'startedAt': null,
+        'endedAt': null,
+        'duration': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      consultationId = docRef.id;
+    }
+
+    if (context.mounted) {
+      context.go('/consultation/$consultationId');
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch call: $e')),
+      );
+    }
   }
 }

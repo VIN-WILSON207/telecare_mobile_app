@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 import '../../../../features/auth/providers/auth_providers.dart';
 import '../../../../features/auth/providers/auth_state.dart';
 
@@ -186,8 +187,8 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
     final authState = ref.watch(authNotifierProvider);
 
     // Pull admin info from auth state if authenticated
-    String adminName = 'Admin User';
-    String adminEmail = 'admin@telecare.com';
+    String adminName = 'System Admin';
+    String adminEmail = 'abilavinwilson@gmail.com';
     if (authState is AuthAuthenticated) {
       adminName = authState.user.fullName.isNotEmpty
           ? authState.user.fullName
@@ -331,25 +332,36 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
           const SizedBox(height: 14),
 
           // Meta row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
             children: [
-              const Icon(Icons.calendar_month_rounded,
-                  size: 13, color: AppTheme.neutralLight),
-              const SizedBox(width: 4),
-              Text(
-                'Member since ${_fmtDate(DateTime(2025, 1, 15))}',
-                style: const TextStyle(
-                    fontSize: 11.5, color: AppTheme.neutralLight),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month_rounded,
+                      size: 13, color: AppTheme.neutralLight),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Member since ${_fmtDate(DateTime(2025, 1, 15))}',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppTheme.neutralLight),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              const Icon(Icons.login_rounded,
-                  size: 13, color: AppTheme.neutralLight),
-              const SizedBox(width: 4),
-              Text(
-                'Last login ${_fmtDateTime(DateTime(2026, 6, 30, 9, 12))}',
-                style: const TextStyle(
-                    fontSize: 11.5, color: AppTheme.neutralLight),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.login_rounded,
+                      size: 13, color: AppTheme.neutralLight),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Last login ${_fmtDateTime(DateTime(2026, 6, 30, 9, 12))}',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppTheme.neutralLight),
+                  ),
+                ],
               ),
             ],
           ),
@@ -400,7 +412,9 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
           TextField(
             controller: _currentPwController,
             obscureText: !_showCurrentPw,
-            decoration: InputDecoration(
+            cursorColor: TeleCareInputStyles.cursorColor,
+            style: TeleCareInputStyles.textStyle,
+            decoration: TeleCareInputStyles.decoration(
               labelText: 'Current Password',
               prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
@@ -416,7 +430,9 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
           TextField(
             controller: _newPwController,
             obscureText: !_showNewPw,
-            decoration: InputDecoration(
+            cursorColor: TeleCareInputStyles.cursorColor,
+            style: TeleCareInputStyles.textStyle,
+            decoration: TeleCareInputStyles.decoration(
               labelText: 'New Password',
               prefixIcon: const Icon(Icons.lock_rounded),
               suffixIcon: IconButton(
@@ -431,7 +447,9 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
           TextField(
             controller: _confirmPwController,
             obscureText: !_showConfirmPw,
-            decoration: InputDecoration(
+            cursorColor: TeleCareInputStyles.cursorColor,
+            style: TeleCareInputStyles.textStyle,
+            decoration: TeleCareInputStyles.decoration(
               labelText: 'Confirm Password',
               prefixIcon: const Icon(Icons.lock_rounded),
               suffixIcon: IconButton(
@@ -598,21 +616,31 @@ class _AdminProfileViewState extends ConsumerState<AdminProfileView> {
                   ),
                 ),
                 const SizedBox(height: 3),
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Last used: ${_fmtDateTime(device.lastUsed)}',
                       style: const TextStyle(
                           fontSize: 11, color: AppTheme.neutralLight),
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.location_on_outlined,
-                        size: 11, color: AppTheme.neutralLight),
-                    const SizedBox(width: 2),
-                    Text(
-                      device.location,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTheme.neutralLight),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 11, color: AppTheme.neutralLight),
+                        const SizedBox(width: 2),
+                        Flexible(
+                          child: Text(
+                            device.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTheme.neutralLight),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

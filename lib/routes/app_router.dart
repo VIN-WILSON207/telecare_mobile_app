@@ -23,6 +23,8 @@ import '../features/verification/presentation/screens/verification_status_screen
 import '../features/verification/presentation/screens/submit_verification_screen.dart';
 import '../features/verification/presentation/screens/pending_verifications_screen.dart';
 import '../features/verification/presentation/screens/verification_review_screen.dart';
+import '../features/doctor/presentation/screens/availability_management_screen.dart';
+import '../features/doctor/presentation/screens/upload_safety_measures_screen.dart';
 
 /// A notifier that triggers GoRouter redirects when AuthState changes.
 class RouterNotifier extends ChangeNotifier {
@@ -42,12 +44,14 @@ final routerNotifierProvider = Provider<RouterNotifier>((ref) {
 
 /// Provides the [GoRouter] instance with auth-aware redirect logic.
 final routerProvider = Provider<GoRouter>((ref) {
+  debugPrint('[Router] routerProvider building');
   final routerNotifier = ref.watch(routerNotifierProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
 
   // Determine initial route dynamically on cold start
   String initialRoute = '/';
   final isFirstInstall = prefs.getBool('is_first_install') ?? true;
+  debugPrint('[Router] isFirstInstall: $isFirstInstall');
 
   if (isFirstInstall) {
     initialRoute = '/';
@@ -86,8 +90,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     // ── Redirect guard ────────────────────────────────────────────────
     redirect: (context, state) {
       final authState = ref.read(authNotifierProvider);
+      debugPrint('[Router] Redirecting. Path: ${state.uri.path}, State: ${authState.runtimeType}');
 
       if (authState is AuthInitial || authState is AuthLoading) {
+        debugPrint('[Router] Waiting for auth state...');
         return null; // wait for auth state to load
       }
 
@@ -170,6 +176,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         '/patients',
         '/medical-records',
         '/prescriptions',
+        '/availability',
+        '/upload-safety',
       ];
       if (isHealthcareProfessional && !isVerified && restrictedProfessionalRoutes.contains(currentPath)) {
         return '/verification-status';
@@ -239,6 +247,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/appointments',
         name: 'appointments',
         builder: (context, state) => const AppointmentsScreen(),
+      ),
+      GoRoute(
+        path: '/availability',
+        name: 'availability',
+        builder: (context, state) => const AvailabilityManagementScreen(),
+      ),
+      GoRoute(
+        path: '/upload-safety',
+        name: 'uploadSafety',
+        builder: (context, state) => const UploadSafetyMeasuresScreen(),
       ),
       GoRoute(
         path: '/messages',

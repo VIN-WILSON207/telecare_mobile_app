@@ -7,11 +7,13 @@ service cloud.firestore {
     }
 
     function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return get(/databases/$(database)/documents/users/$(isSignedIn() ? request.auth.uid : 'placeholder_uid'));
     }
 
     function userRole() {
-      return isSignedIn() ? userDoc().data.role : null;
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
     }
 
     function isAdmin() {
@@ -20,29 +22,152 @@ service cloud.firestore {
 
     function isApprovedDoctor() {
       return userRole() == 'doctor'
-        && userDoc().data.verificationStatus == 'approved';
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verificationStatus == 'approved';
+    }
+
+    function isApprovedHealthcareProfessional() {
+      return (
+          userRole() == 'doctor' ||
+          userRole() == 'nurse' ||
+          userRole() == 'lab_technician' ||
+          userRole() == 'pharmacist' ||
+          userRole() == 'physiotherapist'
+        )
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verificationStatus == 'approved';
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isParticipant(data) {
+      return isSignedIn() && data != null && (
+        data.patientId == request.auth.uid ||
+        data.doctorId == request.auth.uid ||
+        (data.keys().hasAny(['participants']) &&
+          request.auth.uid in data.participants) ||
+        isAdmin()
+      );
+    }
+
+    function isCloudinaryUrl(url) {
+      return url is string && url.matches('https://res.cloudinary.com/.*');
+    }
+
+    function validMedicalRecordAttachmentUrls(attachments) {
+      return attachments is list
+        && attachments.size() <= 5
+        && (attachments.size() < 1 || isCloudinaryUrl(attachments[0]))
+        && (attachments.size() < 2 || isCloudinaryUrl(attachments[1]))
+        && (attachments.size() < 3 || isCloudinaryUrl(attachments[2]))
+        && (attachments.size() < 4 || isCloudinaryUrl(attachments[3]))
+        && (attachments.size() < 5 || isCloudinaryUrl(attachments[4]));
+    }
+
+    function validMedicalRecordShape(data) {
+      return data.keys().hasAll([
+          'appointmentId',
+          'doctorId',
+          'doctorName',
+          'patientId',
+          'patientName',
+          'diagnosis',
+          'symptoms',
+          'treatmentPlan',
+          'prescription',
+          'notes',
+          'attachments',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'createdBy'
+        ])
+        && data.keys().hasOnly([
+          'appointmentId',
+          'consultationId',
+          'doctorId',
+          'doctorName',
+          'nurseName',
+          'patientId',
+          'patientName',
+          'diagnosis',
+          'symptoms',
+          'treatmentPlan',
+          'prescription',
+          'notes',
+          'attachments',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'createdBy'
+        ])
+        && data.appointmentId is string
+        && data.doctorId is string
+        && data.doctorName is string
+        && (!('nurseName' in data) || data.nurseName is string)
+        && data.patientId is string
+        && data.patientName is string
+        && data.diagnosis is string
+        && data.symptoms is list
+        && data.treatmentPlan is string
+        && data.prescription is list
+        && data.notes is string
+        && validMedicalRecordAttachmentUrls(data.attachments)
+        && data.status == 'submitted'
+        && data.createdBy == request.auth.uid
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function medicalRecordMatchesAppointment(data) {
+      return exists(/databases/$(database)/documents/appointments/$(data.appointmentId))
+        && get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.doctorId == data.doctorId
+        && get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.patientId == data.patientId
+        && (
+          get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.status == 'approved' ||
+          get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.status == 'completed'
+        );
+    }
+
+    function chatRoomMatchesAppointment(data) {
+      return data.appointmentId is string
+        && data.doctorId is string
+        && data.patientId is string
+        && exists(/databases/$(database)/documents/appointments/$(data.appointmentId))
+        && get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.doctorId == data.doctorId
+        && get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.patientId == data.patientId
+        && (
+          get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.status == 'approved' ||
+          get(/databases/$(database)/documents/appointments/$(data.appointmentId)).data.status == 'completed'
+        );
+    }
+
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
 
     match /verification_requests/{requestId} {
-      allow create: if isSignedIn() && (userRole() == 'doctor' || userRole() == 'nurse' || userRole() == 'labTechnician');
-      allow read: if isSignedIn() && (resource.data.doctorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && (
+        userRole() == 'doctor' ||
+        userRole() == 'nurse' ||
+        userRole() == 'lab_technician' ||
+        userRole() == 'pharmacist' ||
+        userRole() == 'physiotherapist'
+      );
+      allow read: if isSignedIn() && (resource == null || resource.data.doctorId == request.auth.uid || isAdmin());
       allow update: if isAdmin();
       allow delete: if false;
     }
 
     match /appointments/{appointmentId} {
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.patientId == request.auth.uid;
       allow read: if isSignedIn() && (
+        resource == null ||
         resource.data.patientId == request.auth.uid ||
         resource.data.doctorId == request.auth.uid ||
         isAdmin()
@@ -55,44 +180,148 @@ service cloud.firestore {
     }
 
     match /consultations/{consultationId} {
-      allow read: if isSignedIn() && (
-        resource.data.patientId == request.auth.uid ||
-        resource.data.doctorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read: if isSignedIn();
       allow write: if isSignedIn() && (
         request.resource.data.patientId == request.auth.uid ||
         request.resource.data.doctorId == request.auth.uid ||
         isAdmin()
       );
+
+      match /messages/{messageId} {
+        allow read: if isParticipant(
+          get(/databases/$(database)/documents/consultations/$(consultationId)).data
+        );
+        allow create: if isParticipant(
+            get(/databases/$(database)/documents/consultations/$(consultationId)).data
+          )
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.timestamp == request.time;
+        allow update: if isParticipant(
+            get(/databases/$(database)/documents/consultations/$(consultationId)).data
+          )
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isRead', 'readAt', 'deletedFor']);
+        allow delete: if false;
+      }
+    }
+
+    match /chat_rooms/{roomId} {
+      allow read: if isSignedIn() && (
+        resource == null ||
+        request.auth.uid in resource.data.participants ||
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasAll([
+          'doctorId',
+          'patientId',
+          'participants',
+          'appointmentId'
+        ])
+        && request.auth.uid in request.resource.data.participants
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.doctorId in request.resource.data.participants
+        && request.resource.data.patientId in request.resource.data.participants
+        && chatRoomMatchesAppointment(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          request.auth.uid in get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants ||
+          isAdmin()
+        );
+        allow create: if isSignedIn() && (
+            request.auth.uid in get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants ||
+            isAdmin()
+          )
+          && request.resource.data.senderId == request.auth.uid
+          && (!('attachmentUrl' in request.resource.data) ||
+            request.resource.data.attachmentUrl.matches('https://res.cloudinary.com/.*'));
+        allow update: if isSignedIn() && (
+            request.auth.uid in get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants ||
+            isAdmin()
+          )
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isRead', 'status', 'readAt', 'deletedFor']);
+        allow delete: if false;
+      }
     }
 
     match /medical_records/{recordId} {
-      allow create: if (isApprovedDoctor() || userRole() == 'nurse' || userRole() == 'labTechnician')
-        && request.resource.data.patientId is string;
+      allow create: if isApprovedHealthcareProfessional()
+        && request.resource.data.doctorId == request.auth.uid
+        && validMedicalRecordShape(request.resource.data)
+        && medicalRecordMatchesAppointment(request.resource.data);
 
       allow read: if isSignedIn() && (
+        resource == null ||
         resource.data.patientId == request.auth.uid ||
         resource.data.doctorId == request.auth.uid ||
         isAdmin()
       );
 
       allow update: if isSignedIn() && (
-        resource.data.doctorId == request.auth.uid ||
+        (
+          resource.data.doctorId == request.auth.uid &&
+          request.resource.data.doctorId == resource.data.doctorId &&
+          request.resource.data.patientId == resource.data.patientId &&
+          request.resource.data.createdBy == resource.data.createdBy &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          validMedicalRecordAttachmentUrls(request.resource.data.attachments)
+        ) ||
         isAdmin()
       );
 
       allow delete: if false;
     }
 
-    match /audit_logs/{logId} {
+    match /prescriptions/{prescriptionId} {
+      allow create: if isApprovedHealthcareProfessional()
+        && request.resource.data.patientId is string;
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isAdmin() || resource.data.doctorId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
       allow create: if isSignedIn();
+      allow read: if isSignedIn() && (
+        resource == null ||
+        resource.data.targetUserId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update: if isSignedIn() && (
+        resource.data.targetUserId == request.auth.uid ||
+        isAdmin()
+      ) && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['isRead', 'readAt']);
+      allow delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
       allow read: if isAdmin();
     }
 
     match /health_tips/{tipId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isApprovedDoctor();
+    }
+
+    match /safety_measures/{measureId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isApprovedHealthcareProfessional();
     }
 
     match /{document=**} {

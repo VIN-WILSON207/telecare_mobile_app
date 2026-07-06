@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:telecare_mobile_app/features/verification/providers/submit_verification_notifier.dart';
 import 'package:telecare_mobile_app/features/verification/presentation/widgets/document_upload_card.dart';
+import 'package:telecare_mobile_app/core/widgets/telecare_ui.dart';
 
 class SubmitVerificationScreen extends ConsumerStatefulWidget {
   const SubmitVerificationScreen({super.key});
@@ -25,6 +27,17 @@ class _SubmitVerificationScreenState
   final _specialtyController = TextEditingController();
   final _licenseNumberController = TextEditingController();
   final _hospitalController = TextEditingController();
+
+  String _selectedHpType = 'doctor';
+  String _selectedHpPrefix = 'Dr.';
+  String _selectedSpecialty = 'General Doctor';
+  bool _showCustomSpecialty = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _specialtyController.text = 'General Doctor';
+  }
 
   // Maximum allowed size: 5 MB in bytes
   static const int _maxFileSizeBytes = 5 * 1024 * 1024;
@@ -80,7 +93,16 @@ class _SubmitVerificationScreenState
             title: const Text('Submit Credentials'),
             leading: isSubmitting
                 ? const SizedBox.shrink()
-                : null, // disable back while submitting
+                : IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/verification-status');
+                      }
+                    },
+                  ),
           ),
           body: SafeArea(
             child: SingleChildScrollView(
@@ -97,25 +119,99 @@ class _SubmitVerificationScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _specialtyController,
-                      enabled: !isSubmitting,
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedHpType,
+                      style: TeleCareInputStyles.formTextStyle,
                       decoration: const InputDecoration(
-                        labelText: 'Medical Specialty',
-                        hintText: 'e.g. Cardiologist, Pediatrician, General Doctor',
-                        prefixIcon: Icon(Icons.star_rounded),
+                        labelText: 'Type of Healthcare Professional',
+                        prefixIcon: Icon(Icons.badge_outlined),
                       ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter your specialty';
+                      items: const [
+                        DropdownMenuItem(value: 'doctor', child: Text('Medical Doctor (Dr.)')),
+                        DropdownMenuItem(value: 'nurse', child: Text('Registered Nurse (Nurse)')),
+                        DropdownMenuItem(value: 'pharmacist', child: Text('Pharmacist (Pharm.)')),
+                        DropdownMenuItem(value: 'physiotherapist', child: Text('Physiotherapist (Physio.)')),
+                        DropdownMenuItem(value: 'lab_technician', child: Text('Lab Technician (Lab Tech)')),
+                      ],
+                      onChanged: isSubmitting ? null : (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedHpType = val;
+                            if (val == 'doctor') {
+                              _selectedHpPrefix = 'Dr.';
+                            } else if (val == 'nurse') {
+                              _selectedHpPrefix = 'Nurse';
+                            } else if (val == 'pharmacist') {
+                              _selectedHpPrefix = 'Pharm.';
+                            } else if (val == 'physiotherapist') {
+                              _selectedHpPrefix = 'Physio.';
+                            } else {
+                              _selectedHpPrefix = 'HP.';
+                            }
+                          });
                         }
-                        return null;
                       },
                     ),
                     const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedSpecialty,
+                      style: TeleCareInputStyles.formTextStyle,
+                      decoration: const InputDecoration(
+                        labelText: 'Medical Specialty',
+                        prefixIcon: Icon(Icons.star_rounded),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'General Doctor', child: Text('General Doctor')),
+                        DropdownMenuItem(value: 'General Practitioner', child: Text('General Practitioner')),
+                        DropdownMenuItem(value: 'Cardiologist', child: Text('Cardiologist')),
+                        DropdownMenuItem(value: 'Pediatrician', child: Text('Pediatrician')),
+                        DropdownMenuItem(value: 'Dermatologist', child: Text('Dermatologist')),
+                        DropdownMenuItem(value: 'Gynecologist', child: Text('Gynecologist')),
+                        DropdownMenuItem(value: 'Neurologist', child: Text('Neurologist')),
+                        DropdownMenuItem(value: 'Psychiatrist', child: Text('Psychiatrist')),
+                        DropdownMenuItem(value: 'General Nurse', child: Text('General Nurse')),
+                        DropdownMenuItem(value: 'Clinical Pharmacist', child: Text('Clinical Pharmacist')),
+                        DropdownMenuItem(value: 'Physiotherapist', child: Text('Physiotherapist')),
+                        DropdownMenuItem(value: 'Other Specialty', child: Text('Other Specialty (Specify)')),
+                      ],
+                      onChanged: isSubmitting ? null : (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedSpecialty = val;
+                            _showCustomSpecialty = val == 'Other Specialty';
+                            if (!_showCustomSpecialty) {
+                              _specialtyController.text = val;
+                            } else {
+                              _specialtyController.text = '';
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    if (_showCustomSpecialty) ...[
+                      TextFormField(
+                        controller: _specialtyController,
+                        enabled: !isSubmitting,
+                        style: TeleCareInputStyles.formTextStyle,
+                        decoration: const InputDecoration(
+                          labelText: 'Specify Custom Specialty',
+                          hintText: 'e.g. Cardiothoracic Surgeon',
+                          prefixIcon: Icon(Icons.edit_note_rounded),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Please specify your specialty';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _licenseNumberController,
                       enabled: !isSubmitting,
+                      style: TeleCareInputStyles.formTextStyle,
                       decoration: const InputDecoration(
                         labelText: 'Medical License Number',
                         hintText: 'e.g. LIC-998877-CAM',
@@ -132,6 +228,7 @@ class _SubmitVerificationScreenState
                     TextFormField(
                       controller: _hospitalController,
                       enabled: !isSubmitting,
+                      style: TeleCareInputStyles.formTextStyle,
                       decoration: const InputDecoration(
                         labelText: 'Primary Hospital/Clinic Affiliation',
                         hintText: 'e.g. Buea General Hospital',
@@ -353,6 +450,8 @@ class _SubmitVerificationScreenState
           specialty: _specialtyController.text.trim(),
           licenseNumber: _licenseNumberController.text.trim(),
           hospital: _hospitalController.text.trim(),
+          prefix: _selectedHpPrefix,
+          hpType: _selectedHpType,
         );
   }
 }

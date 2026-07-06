@@ -107,6 +107,10 @@ class ConsultationService {
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         await _repository.endConsultation(consultation.id, startedAt);
+        if (consultation.appointmentId.isNotEmpty) {
+          await _repository.updateAppointmentStatus(
+              consultation.appointmentId, 'completed');
+        }
         return;
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
@@ -127,14 +131,14 @@ class ConsultationService {
   ///
   /// Updates Firestore mode field, then rejoins Jitsi with video disabled.
   Future<void> switchToAudioOnly(
-      String consultationId, String displayName) async {
+      ConsultationModel consultation, String displayName) async {
     // Requirement 10.3 — update Firestore first
-    await _repository.updateMode(consultationId, 'audio_only');
+    await _repository.updateMode(consultation.id, 'audio_only');
 
     // Requirement 10.4 — rejoin Jitsi with video disabled via configOverrides
     try {
       final options = JitsiMeetConferenceOptions(
-        room: consultationId,
+        room: consultation.roomId,
         userInfo: JitsiMeetUserInfo(displayName: displayName),
         configOverrides: {
           'startWithVideoMuted': true,
@@ -152,14 +156,15 @@ class ConsultationService {
   /// Switches the consultation back to video mode.
   ///
   /// Updates Firestore mode field, then rejoins Jitsi with video enabled.
-  Future<void> switchToVideo(String consultationId, String displayName) async {
+  Future<void> switchToVideo(
+      ConsultationModel consultation, String displayName) async {
     // Requirement 10.8 — update Firestore
-    await _repository.updateMode(consultationId, 'video');
+    await _repository.updateMode(consultation.id, 'video');
 
     // Rejoin Jitsi with video enabled via configOverrides
     try {
       final options = JitsiMeetConferenceOptions(
-        room: consultationId,
+        room: consultation.roomId,
         userInfo: JitsiMeetUserInfo(displayName: displayName),
         configOverrides: {
           'startWithVideoMuted': false,

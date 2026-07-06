@@ -287,56 +287,64 @@ class _NotificationsSheet extends StatelessWidget {
         Icons.event_available_rounded,
         'Appointment reminder',
         'Your next consultation is coming up.',
+        '/appointments',
       ),
       _NotificationEntry(
         Icons.chat_bubble_rounded,
         'New message',
         'You have a new care-team message.',
+        '/messages',
       ),
       _NotificationEntry(
         Icons.medication_rounded,
         'Prescription update',
         'A digital prescription was updated.',
-      ),
-      _NotificationEntry(
-        Icons.payments_rounded,
-        'Payment update',
-        'Your payment status has changed.',
+        '/medical-records',
       ),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Notifications',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final item in items)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(item.icon, color: AppTheme.primaryColor),
-              title: Text(
-                item.title,
-                style: const TextStyle(
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Notifications',
+                style: TextStyle(
                   color: Colors.black,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              subtitle: Text(
-                item.body,
-                style: const TextStyle(color: AppTheme.neutralMedium),
-              ),
-            ),
-        ],
+              const SizedBox(height: 12),
+              for (final item in items)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(item.icon, color: AppTheme.primaryColor),
+                  title: Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    item.body,
+                    style: const TextStyle(color: AppTheme.neutralMedium),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    if (item.route != null) {
+                      context.go(item.route!);
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -370,47 +378,52 @@ class _EmergencySheet extends StatelessWidget {
       ),
     ];
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Emergency SOS',
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final item in items)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(item.icon, color: AppTheme.errorColor),
-              title: Text(
-                item.title,
-                style: const TextStyle(
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Emergency SOS',
+                style: TextStyle(
                   color: Colors.black,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              subtitle: Text(
-                item.body,
-                style: const TextStyle(color: AppTheme.neutralMedium),
-              ),
-            ),
-        ],
+              const SizedBox(height: 12),
+              for (final item in items)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(item.icon, color: AppTheme.errorColor),
+                  title: Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    item.body,
+                    style: const TextStyle(color: AppTheme.neutralMedium),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _NotificationEntry {
-  const _NotificationEntry(this.icon, this.title, this.body);
+  const _NotificationEntry(this.icon, this.title, this.body, [this.route]);
 
   final IconData icon;
   final String title;
   final String body;
+  final String? route;
 }

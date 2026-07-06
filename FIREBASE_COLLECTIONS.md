@@ -22,8 +22,6 @@ User profile document. The document id must match the Firebase Authentication us
 | `licenseNumber` | string or null | Doctor only | Filled after HP verification submission/approval. |
 | `hospital` | string or null | Doctor only | Doctor workplace/clinic. |
 | `isActive` | boolean | Yes | Admin suspend/reactivate flag. |
-| `fcmToken` | string | No | Last device token for push notifications. |
-| `fcmTokenUpdatedAt` | Timestamp | No | Last token update timestamp. |
 
 ## `verification_requests/{requestId}`
 

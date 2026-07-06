@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
 
 /// Mock sent notification for history tab.
 class _MockNotification {
@@ -189,23 +190,10 @@ class _NotificationsViewState extends ConsumerState<NotificationsView>
           const SizedBox(height: 8),
           TextField(
             controller: _titleController,
-            decoration: InputDecoration(
+            cursorColor: TeleCareInputStyles.cursorColor,
+            style: TeleCareInputStyles.textStyle,
+            decoration: TeleCareInputStyles.decoration(
               hintText: 'Enter notification title...',
-              filled: true,
-              fillColor: AppTheme.cardWhite,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -222,24 +210,11 @@ class _NotificationsViewState extends ConsumerState<NotificationsView>
           TextField(
             controller: _messageController,
             maxLines: 5,
-            decoration: InputDecoration(
+            cursorColor: TeleCareInputStyles.cursorColor,
+            style: TeleCareInputStyles.textStyle,
+            decoration: TeleCareInputStyles.decoration(
               hintText: 'Enter notification message...',
               alignLabelWithHint: true,
-              filled: true,
-              fillColor: AppTheme.cardWhite,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-              ),
             ),
           ),
           const SizedBox(height: 20),

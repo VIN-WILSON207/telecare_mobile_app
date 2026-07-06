@@ -121,6 +121,8 @@ class VerificationRepository {
     final specialty = requestData?['specialty'] as String? ?? '';
     final licenseNumber = requestData?['licenseNumber'] as String? ?? '';
     final hospital = requestData?['hospital'] as String? ?? '';
+    final prefix = requestData?['prefix'] as String? ?? 'Dr.';
+    final hpType = requestData?['hpType'] as String? ?? 'doctor';
 
     final batch = _firestore.batch();
 
@@ -137,10 +139,12 @@ class VerificationRepository {
     final userRef = _firestore.collection('users').doc(doctorId);
     batch.update(userRef, {
       'verificationStatus': 'approved',
-      'role': 'doctor', // Elevate/ensure role is doctor
+      'role': hpType, // Elevate/ensure role is doctor/nurse/pharmacist/etc.
       'specialty': specialty,
       'licenseNumber': licenseNumber,
       'hospital': hospital,
+      'prefix': prefix,
+      'hpType': hpType,
     });
 
     // 2. Log doctor approval in Audit Logs

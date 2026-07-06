@@ -34,6 +34,8 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
     required String specialty,
     required String licenseNumber,
     required String hospital,
+    required String prefix,
+    required String hpType,
   }) async {
     final authState = ref.read(authNotifierProvider);
     if (authState is! AuthAuthenticated) {
@@ -90,6 +92,8 @@ class SubmitVerificationNotifier extends AsyncNotifier<void> {
         specialty: specialty,
         licenseNumber: licenseNumber,
         hospital: hospital,
+        prefix: prefix,
+        hpType: hpType,
       );
 
       // 4. Save request in Firestore

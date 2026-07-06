@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_role.dart';
 import '../data/models/user_model.dart';
 import '../data/repositories/auth_repository.dart';
-import '../../../core/services/service_providers.dart';
 import '../../admin/dev_admin_access.dart';
 import 'auth_providers.dart';
 import 'auth_state.dart';
@@ -146,14 +145,16 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
             .read(firestoreProvider)
             .collection('audit_logs')
             .doc();
-        await auditRef.set({
-          'id': auditRef.id,
-          'action': 'login',
-          'userId': user.uid,
-          'userName': user.fullName,
-          'details': 'User logged in successfully',
-          'timestamp': FieldValue.serverTimestamp(),
-        }).timeout(const Duration(seconds: 8));
+        await auditRef
+            .set({
+              'id': auditRef.id,
+              'action': 'login',
+              'userId': user.uid,
+              'userName': user.fullName,
+              'details': 'User logged in successfully',
+              'timestamp': FieldValue.serverTimestamp(),
+            })
+            .timeout(const Duration(seconds: 8));
       } catch (auditError) {
         debugPrint(
           '[AuthNotifier] Failed to write login audit log: $auditError',
@@ -162,12 +163,6 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
 
       await updateActivity();
       state = AuthAuthenticated(user);
-
-      // Task 17 — register FCM token non-blocking after successful login
-      ref.read(fcmServiceProvider).registerToken(user.uid).catchError((e) {
-        debugPrint('[AuthNotifier] FCM token registration failed: $e');
-        return null;
-      });
     } on FirebaseAuthException catch (e) {
       state = AuthError(_mapFirebaseError(e.code));
     } on TimeoutException {
@@ -175,7 +170,8 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
         'The request is taking too long. Please check your connection and try again.',
       );
     } on AuthException catch (e) {
-      if (_isFirestoreTransient(e.code) && await _authenticateDevAdminFallback()) {
+      if (_isFirestoreTransient(e.code) &&
+          await _authenticateDevAdminFallback()) {
         return;
       }
       state = AuthError(_mapFirebaseError(e.code));
@@ -227,15 +223,17 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
             .read(firestoreProvider)
             .collection('audit_logs')
             .doc();
-        await auditRef.set({
-          'id': auditRef.id,
-          'action': 'registration',
-          'userId': user.uid,
-          'userName': user.fullName,
-          'details':
-              'User registered successfully with role: ${user.role.value}',
-          'timestamp': FieldValue.serverTimestamp(),
-        }).timeout(const Duration(seconds: 8));
+        await auditRef
+            .set({
+              'id': auditRef.id,
+              'action': 'registration',
+              'userId': user.uid,
+              'userName': user.fullName,
+              'details':
+                  'User registered successfully with role: ${user.role.value}',
+              'timestamp': FieldValue.serverTimestamp(),
+            })
+            .timeout(const Duration(seconds: 8));
       } catch (auditError) {
         debugPrint(
           '[AuthNotifier] Failed to write registration audit log: $auditError',
@@ -359,6 +357,13 @@ class AuthNotifier extends Notifier<AuthState> with WidgetsBindingObserver {
       state = const AuthUnauthenticated();
     } catch (e) {
       state = const AuthUnauthenticated();
+    }
+  }
+
+  /// Updates the user profile inside the authenticated state.
+  void updateAuthenticatedUser(UserModel updatedUser) {
+    if (state is AuthAuthenticated) {
+      state = AuthAuthenticated(updatedUser);
     }
   }
 

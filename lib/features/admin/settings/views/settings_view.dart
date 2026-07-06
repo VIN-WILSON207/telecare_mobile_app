@@ -11,12 +11,22 @@ class SettingsView extends ConsumerStatefulWidget {
 }
 
 class _SettingsViewState extends ConsumerState<SettingsView> {
+  // General Settings
+  String _logo = 'default_logo.png';
+  String _appName = 'TeleCare';
+  String _contactEmail = 'abilavinwilson@gmail.com';
+  String _supportNumber = '+234-800-TELECARE';
+
   // Interface
   bool _darkMode = false;
   String _selectedLanguage = 'English';
 
   // Security
+  String _passwordPolicy = 'Strong (8+ chars, uppercase, number, symbol)';
+  String _sessionTimeout = '30 minutes';
   bool _twoFactorAuth = true;
+  String _biometricRequirement = 'Optional';
+  String _maxLoginAttempts = '5';
   bool _deviceTrust = false;
 
   // Notifications
@@ -106,29 +116,29 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               _buildInfoListTile(
                 icon: Icons.image_rounded,
                 title: 'Logo',
-                value: 'default_logo.png',
-                onEdit: () => _showEditSnackBar('Logo'),
+                value: _logo,
+                onEdit: () => _showEditDialog('Logo', _logo, (val) => setState(() => _logo = val)),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
                 icon: Icons.apps_rounded,
                 title: 'App Name',
-                value: 'TeleCare',
-                onEdit: () => _showEditSnackBar('App Name'),
+                value: _appName,
+                onEdit: () => _showEditDialog('App Name', _appName, (val) => setState(() => _appName = val)),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
                 icon: Icons.email_rounded,
                 title: 'Contact Email',
-                value: 'admin@telecare.com',
-                onEdit: () => _showEditSnackBar('Contact Email'),
+                value: _contactEmail,
+                onEdit: () => _showEditDialog('Contact Email', _contactEmail, (val) => setState(() => _contactEmail = val)),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
                 icon: Icons.phone_rounded,
                 title: 'Support Number',
-                value: '+234-800-TELECARE',
-                onEdit: () => _showEditSnackBar('Support Number'),
+                value: _supportNumber,
+                onEdit: () => _showEditDialog('Support Number', _supportNumber, (val) => setState(() => _supportNumber = val)),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
@@ -136,7 +146,15 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 title: 'Privacy Policy',
                 value: 'View Document',
                 valueColor: AppTheme.infoColor,
-                onEdit: () => _showEditSnackBar('Privacy Policy'),
+                onEdit: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Opening Privacy Policy Document...'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                  );
+                },
               ),
               const Divider(height: 1),
               _buildInfoListTile(
@@ -144,7 +162,15 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
                 title: 'Terms of Service',
                 value: 'View Document',
                 valueColor: AppTheme.infoColor,
-                onEdit: () => _showEditSnackBar('Terms of Service'),
+                onEdit: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Opening Terms of Service Document...'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                  );
+                },
               ),
               const Divider(height: 1),
               // Interface
@@ -228,15 +254,20 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               _buildInfoListTile(
                 icon: Icons.password_rounded,
                 title: 'Password Policy',
-                value: 'Strong (8+ chars, uppercase, number, symbol)',
-                onEdit: () => _showEditSnackBar('Password Policy'),
+                value: _passwordPolicy,
+                onEdit: () => _showEditDialog('Password Policy', _passwordPolicy, (val) => setState(() => _passwordPolicy = val)),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
                 icon: Icons.timer_rounded,
                 title: 'Session Timeout',
-                value: '30 minutes',
-                onEdit: () => _showEditSnackBar('Session Timeout'),
+                value: _sessionTimeout,
+                onEdit: () => _showSelectionDialog(
+                  'Session Timeout',
+                  ['15 minutes', '30 minutes', '1 hour', '2 hours'],
+                  _sessionTimeout,
+                  (val) => setState(() => _sessionTimeout = val),
+                ),
               ),
               const Divider(height: 1),
               SwitchListTile(
@@ -266,15 +297,25 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               _buildInfoListTile(
                 icon: Icons.fingerprint_rounded,
                 title: 'Biometric Requirement',
-                value: 'Optional',
-                onEdit: () => _showEditSnackBar('Biometric Requirement'),
+                value: _biometricRequirement,
+                onEdit: () => _showSelectionDialog(
+                  'Biometric Requirement',
+                  ['Mandatory', 'Optional', 'Disabled'],
+                  _biometricRequirement,
+                  (val) => setState(() => _biometricRequirement = val),
+                ),
               ),
               const Divider(height: 1),
               _buildInfoListTile(
                 icon: Icons.block_rounded,
                 title: 'Maximum Login Attempts',
-                value: '5',
-                onEdit: () => _showEditSnackBar('Maximum Login Attempts'),
+                value: _maxLoginAttempts,
+                onEdit: () => _showSelectionDialog(
+                  'Maximum Login Attempts',
+                  ['3', '5', '10'],
+                  _maxLoginAttempts,
+                  (val) => setState(() => _maxLoginAttempts = val),
+                ),
               ),
               const Divider(height: 1),
               SwitchListTile(
@@ -939,16 +980,119 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
     );
   }
 
-  void _showEditSnackBar(String field) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Edit "$field" — feature coming soon'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.primaryColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-        ),
-      ),
+  void _showEditDialog(String title, String currentValue, Function(String) onSave) {
+    final controller = TextEditingController(text: currentValue);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          title: Text('Edit $title'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: AppTheme.neutralDark),
+            decoration: InputDecoration(
+              hintText: 'Enter new $title',
+              hintStyle: const TextStyle(fontSize: 13, color: AppTheme.neutralLight),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.neutralMedium)),
+            ),
+            TextButton(
+              onPressed: () {
+                onSave(controller.text.trim());
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$title updated successfully!'),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: AppTheme.successColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Save', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showSelectionDialog(String title, List<String> options, String currentValue, Function(String) onSave) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+          ),
+          title: Text('Select $title'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: options.map((opt) {
+                return ListTile(
+                  title: Text(opt, style: const TextStyle(fontSize: 14, color: AppTheme.neutralDark)),
+                  leading: Radio<String>(
+                    value: opt,
+                    groupValue: currentValue,
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (val) {
+                      if (val != null) {
+                        onSave(val);
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$title updated to $val'),
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: AppTheme.successColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    onSave(opt);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('$title updated to $opt'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: AppTheme.successColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.neutralMedium)),
+            ),
+          ],
+        );
+      },
     );
   }
 

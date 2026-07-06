@@ -34,12 +34,19 @@ class AdminShellScreen extends ConsumerWidget {
     final String adminName =
         authState is AuthAuthenticated ? authState.user.fullName : 'System Admin';
     final String adminEmail =
-        authState is AuthAuthenticated ? authState.user.email : 'admin@telecare.com';
+        authState is AuthAuthenticated ? authState.user.email : 'abilavinwilson@gmail.com';
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 900;
 
-    return Scaffold(
+    return PopScope(
+      canPop: activeTab == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && activeTab != 0) {
+          ref.read(adminActiveTabProvider.notifier).setTab(0);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.neutralBackground,
       appBar: AppBar(
         title: Text(_getAppBarTitle(activeTab)),
@@ -78,7 +85,7 @@ class AdminShellScreen extends ConsumerWidget {
       bottomNavigationBar: isWideScreen
           ? null
           : _buildBottomNav(context, ref, activeTab),
-    );
+    ));
   }
 
   // ── Bottom Navigation Bar (Mobile) ──────────────────────────────────────────

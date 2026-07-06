@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../appointments/data/models/appointment_model.dart';
 import '../../../appointments/providers/appointments_providers.dart';
+import '../../../auth/data/models/user_role.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/service_providers.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/telecare_ui.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:go_router/go_router.dart';
 
 class PatientAppointmentsView extends ConsumerStatefulWidget {
   final UserModel user;
@@ -359,6 +363,7 @@ class _PatientAppointmentsViewState
 }
 
 // ── Patient Doctor Card ─────────────────────────────────────────────────────────────
+// ── Patient Doctor Card ─────────────────────────────────────────────────────────────
 class _PatientDoctorCard extends StatelessWidget {
   final UserModel doctor;
   final UserModel patient;
@@ -372,6 +377,23 @@ class _PatientDoctorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final prefix = doctor.prefix ?? doctor.role.displayPrefix;
+    final name = prefix.isNotEmpty ? '$prefix ${doctor.fullName}' : doctor.fullName;
+    final isOnline = doctor.isOnline == true;
+    final inCall = doctor.inCall == true;
+    final availabilityText = _formatAvailabilityText(doctor.availability);
+    
+    String roleLabel = 'Healthcare Professional';
+    if (doctor.role == UserRole.doctor) {
+      roleLabel = 'Doctor';
+    } else if (doctor.role == UserRole.nurse) {
+      roleLabel = 'Nurse';
+    } else if (doctor.role == UserRole.pharmacist) {
+      roleLabel = 'Pharmacist';
+    } else if (doctor.role == UserRole.physiotherapist) {
+      roleLabel = 'Physiotherapist';
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -383,20 +405,39 @@ class _PatientDoctorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: AppTheme.primarySurface,
-            backgroundImage:
-                doctor.profileImage != null && doctor.profileImage!.isNotEmpty
-                ? NetworkImage(doctor.profileImage!)
-                : null,
-            child: doctor.profileImage == null || doctor.profileImage!.isEmpty
-                ? const Icon(
-                    Icons.person,
-                    color: AppTheme.primaryColor,
-                    size: 26,
-                  )
-                : null,
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: AppTheme.primarySurface,
+                backgroundImage:
+                    doctor.profileImage != null && doctor.profileImage!.isNotEmpty
+                    ? NetworkImage(doctor.profileImage!)
+                    : null,
+                child: doctor.profileImage == null || doctor.profileImage!.isEmpty
+                    ? const Icon(
+                        Icons.person,
+                        color: AppTheme.primaryColor,
+                        size: 26,
+                      )
+                    : null,
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: inCall
+                        ? Colors.red
+                        : (isOnline ? Colors.green : Colors.grey),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -404,7 +445,7 @@ class _PatientDoctorCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Dr. ${doctor.fullName}',
+                  name,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.neutralDark,
@@ -412,16 +453,16 @@ class _PatientDoctorCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.verified_rounded,
                       color: AppTheme.primaryColor,
                       size: 13,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
-                      'Verified Doctor',
-                      style: TextStyle(
+                      'Verified $roleLabel',
+                      style: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -434,6 +475,17 @@ class _PatientDoctorCard extends StatelessWidget {
                   doctor.email,
                   style: Theme.of(context).textTheme.bodySmall,
                   overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Schedule: $availabilityText',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: AppTheme.neutralMedium,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ],
             ),
@@ -467,6 +519,8 @@ class _PatientDoctorCard extends StatelessWidget {
     UserModel doctor,
   ) async {
     final reasonController = TextEditingController();
+    final prefix = doctor.prefix ?? doctor.role.displayPrefix;
+    final name = prefix.isNotEmpty ? '$prefix ${doctor.fullName}' : doctor.fullName;
 
     final reason = await showDialog<String>(
       context: context,
@@ -478,7 +532,7 @@ class _PatientDoctorCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Book with Dr. ${doctor.fullName}',
+              'Book with $name',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
@@ -492,16 +546,46 @@ class _PatientDoctorCard extends StatelessWidget {
             ),
           ],
         ),
-        content: TextField(
-          controller: reasonController,
-          maxLines: 3,
-          decoration: InputDecoration(
-            hintText: 'e.g. Headache, general check-up...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (doctor.inCall == true) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.phone_in_talk_rounded, color: Colors.red, size: 16),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'This professional is currently in a call/busy.',
+                        style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              style: TeleCareInputStyles.formTextStyle,
+              decoration: InputDecoration(
+                hintText: 'e.g. Headache, general check-up...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         actions: [
           TextButton(
@@ -620,14 +704,14 @@ class _PatientDoctorCard extends StatelessWidget {
 }
 
 // ── Patient Appointment Card ──────────────────────────────────────────────────
-class _PatientAppointmentCard extends StatelessWidget {
+class _PatientAppointmentCard extends ConsumerWidget {
 
   final AppointmentModel appointment;
 
   const _PatientAppointmentCard({required this.appointment});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusInfo = _statusInfo(appointment.status);
 
     return Container(
@@ -708,6 +792,22 @@ class _PatientAppointmentCard extends StatelessWidget {
               ),
             ],
           ),
+          if (appointment.status.toLowerCase() == 'approved') ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.phone_enabled_rounded, size: 16),
+              label: const Text('Join Consultation Call'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => launchCall(context, ref, appointment),
+            ),
+          ],
         ],
       ),
     );
@@ -816,5 +916,69 @@ class _ErrorCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+String _formatAvailabilityText(Map<String, dynamic>? availability) {
+  if (availability == null || availability.isEmpty) return 'No schedule set';
+  final List<String> parts = [];
+  final daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  for (final day in daysOfWeek) {
+    if (availability.containsKey(day)) {
+      final slots = availability[day];
+      if (slots is List && slots.isNotEmpty) {
+        final dayAbbr = day.substring(0, 3).toUpperCase();
+        final slotStrings = slots.map((s) {
+          if (s is Map) {
+            return '${s['start']}-${s['end']}';
+          }
+          return '';
+        }).where((s) => s.isNotEmpty).join(', ');
+        if (slotStrings.isNotEmpty) {
+          parts.add('$dayAbbr: $slotStrings');
+        }
+      }
+    }
+  }
+  return parts.isEmpty ? 'Offline' : parts.join(' | ');
+}
+
+Future<void> launchCall(BuildContext context, WidgetRef ref, AppointmentModel appointment) async {
+  try {
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore
+        .collection('consultations')
+        .where('appointmentId', isEqualTo: appointment.id)
+        .where('patientId', isEqualTo: appointment.patientId)
+        .get();
+
+    String consultationId;
+    if (snapshot.docs.isNotEmpty) {
+      consultationId = snapshot.docs.first.id;
+    } else {
+      final docRef = await firestore.collection('consultations').add({
+        'appointmentId': appointment.id,
+        'doctorId': appointment.doctorId,
+        'patientId': appointment.patientId,
+        'roomId': appointment.id,
+        'status': 'scheduled',
+        'mode': 'video',
+        'startedAt': null,
+        'endedAt': null,
+        'duration': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      consultationId = docRef.id;
+    }
+
+    if (context.mounted) {
+      context.go('/consultation/$consultationId');
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to launch call: $e')),
+      );
+    }
   }
 }
